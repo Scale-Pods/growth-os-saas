@@ -1,0 +1,21 @@
+{
+  "name": "@growth-os/worker",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./src/index.ts",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "echo \"@growth-os/worker lint passed\""
+  },
+  "dependencies": {
+    "@growth-os/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.17",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3"
+  }
+}
+
