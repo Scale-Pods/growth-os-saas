@@ -22,7 +22,6 @@ begin
 end;
 $$;
 revoke all on function private.set_updated_at() from public, anon;
-grant execute on function private.set_updated_at() to authenticated, service_role;
 
 -- 1.2 Prevent modification of brand_id once set
 create or replace function private.prevent_brand_id_change()
@@ -39,7 +38,6 @@ begin
 end;
 $$;
 revoke all on function private.prevent_brand_id_change() from public, anon;
-grant execute on function private.prevent_brand_id_change() to authenticated, service_role;
 
 -- 1.3 Plan limit check for brands
 create or replace function private.check_brand_plan_limit()
@@ -49,37 +47,23 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_plan_id text;
+  v_limit integer;
   v_brand_count integer;
-  v_max_brands integer;
 begin
-  select plan_id into v_plan_id
-  from public.organizations
-  where id = new.org_id;
-
-  if v_plan_id is null then
-    raise exception 'Organization not found';
+  v_limit := private.limit_for(new.org_id, 'brands');
+  if v_limit is null then
+    raise exception 'Organization or plan limit not found';
   end if;
 
-  -- Starter: 1 brand | Pro / Trial: 3 brands | Agency: 15 brands | Enterprise: unlimited (-1)
-  v_max_brands := case lower(v_plan_id)
-    when 'starter' then 1
-    when 'pro' then 3
-    when 'trial' then 3
-    when 'agency' then 15
-    when 'enterprise' then -1
-    else 1
-  end;
-
-  if v_max_brands <> -1 then
+  if v_limit <> -1 then
     select count(*) into v_brand_count
     from public.brands
     where org_id = new.org_id
       and status = 'active';
 
-    if v_brand_count >= v_max_brands then
-      raise exception 'Plan limit reached: your % plan allows at most % active brand(s). Upgrade to add more brands.',
-        v_plan_id, v_max_brands;
+    if v_brand_count >= v_limit then
+      raise exception 'Plan limit reached: your plan allows at most % active brand(s). Upgrade to add more brands.', v_limit
+        using errcode = 'P0001';
     end if;
   end if;
 
@@ -87,7 +71,6 @@ begin
 end;
 $$;
 revoke all on function private.check_brand_plan_limit() from public, anon;
-grant execute on function private.check_brand_plan_limit() to authenticated, service_role;
 
 -- Attach plan limit trigger to public.brands
 drop trigger if exists trg_brands_plan_limit on public.brands;
@@ -497,3 +480,7 @@ grant select, insert, update, delete on public.brand_voice to authenticated, ser
 grant select, insert, update, delete on public.brand_facts to authenticated, service_role;
 grant select, insert, update, delete on public.brand_pillars to authenticated, service_role;
 grant select, insert, update, delete on public.competitors to authenticated, service_role;
+
+-- Supabase grants anon access to new tables by default; deny it (RLS is the second line, not the only one)
+revoke all on public.brand_profiles, public.brand_kits, public.brand_voice,
+              public.brand_facts, public.brand_pillars, public.competitors from anon, public;

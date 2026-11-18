@@ -61,3 +61,22 @@ jobs:
         # Blocks on critical. One high remains (zod 3.x, fix only in 4.x): tracked in docs/build-plan/tracker.md
         run: pnpm audit --audit-level=critical
 
+
+  database:
+    name: Database (migrations + isolation suite)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase (applies every migration)
+        run: supabase start --workdir packages/db -x studio,imgproxy,edge-runtime,logflare,vector,mailpit
+
+      - name: Run cross-tenant isolation suite
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -q -f packages/db/tests/isolation.sql

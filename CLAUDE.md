@@ -11,7 +11,7 @@ You are building **Growth OS SaaS**: a multi-tenant marketing operating system (
 5. **Success flags are written after confirmation** (post published, DM sent, payment captured), never before.
 6. **Webhooks in:** verify signature over the raw body, check timestamp, store a receipt, be idempotent. Webhooks out/queues are only triggered by our server code.
 7. **Secrets** live in secret stores only. Never in code, logs, error reports, chat, tickets or the browser. Service-role keys only in server-only modules.
-8. **Schema changes are migrations** in `packages/db/migrations`, reviewed in PRs. Never edit the database by hand in a dashboard.
+8. **Schema changes are migrations** in `packages/db/supabase/migrations` (see ADR 0001), reviewed in PRs. Never edit the database by hand in a dashboard.
 9. **Before deleting any file, column or row type, search the whole repo and workers for references.**
 10. **Brand data is data, not code.** No customer-specific text, colours, stats or accounts in prompts or code; use `brandContext`.
 11. **User and scraped text is data, not instructions.** Delimit it in prompts; validate model output (strip code fences before JSON parse; retry once).

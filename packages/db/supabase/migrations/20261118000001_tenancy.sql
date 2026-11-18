@@ -117,6 +117,22 @@ create table public.audit_log (
 create index idx_audit_log_org_created on public.audit_log (org_id, created_at desc);
 create index idx_audit_log_slug_created on public.audit_log (org_slug, created_at desc);
 
+
+-- 3.8 Plan limits (data, not code). value -1 means unlimited. Global config: no org_id.
+create table public.plan_limits (
+  plan_id text not null,
+  key text not null,
+  value integer not null,
+  primary key (plan_id, key)
+);
+
+insert into public.plan_limits (plan_id, key, value) values
+  ('trial','brands',3),('trial','channels',15),('trial','seats',5),('trial','credits_month',200),('trial','automations',10),('trial','watches',10),
+  ('starter','brands',1),('starter','channels',5),('starter','seats',2),('starter','credits_month',1000),('starter','automations',1),('starter','watches',2),
+  ('pro','brands',3),('pro','channels',15),('pro','seats',5),('pro','credits_month',4000),('pro','automations',10),('pro','watches',10),
+  ('agency','brands',15),('agency','channels',75),('agency','seats',15),('agency','credits_month',15000),('agency','automations',-1),('agency','watches',40),
+  ('enterprise','brands',-1),('enterprise','channels',-1),('enterprise','seats',-1),('enterprise','credits_month',-1),('enterprise','automations',-1),('enterprise','watches',-1);
+
 -- ==============================================================================
 -- 4. Enable Row Level Security (RLS) on all tables
 -- ==============================================================================
@@ -128,6 +144,7 @@ alter table public.feature_access enable row level security;
 alter table public.brands enable row level security;
 alter table public.invitations enable row level security;
 alter table public.audit_log enable row level security;
+alter table public.plan_limits enable row level security;
 
 -- ==============================================================================
 -- 5. Private Security-Definer Helper Functions
@@ -449,6 +466,45 @@ begin
 end;
 $$;
 
+
+-- 5.8 Effective numeric limit for an organization's plan (-1 = unlimited, null = unknown key)
+create or replace function private.limit_for(p_org uuid, p_key text)
+returns integer
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select pl.value
+  from public.organizations o
+  join public.plan_limits pl on pl.plan_id = o.plan_id and pl.key = p_key
+  where o.id = p_org;
+$$;
+
+-- 5.9 Refuse inserts above the plan's seat limit (cannot be bypassed from the browser)
+create or replace function private.check_seat_plan_limit()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_limit integer;
+  v_count integer;
+begin
+  v_limit := private.limit_for(new.org_id, 'seats');
+  if v_limit is not null and v_limit <> -1 then
+    select count(*) into v_count from public.memberships
+    where org_id = new.org_id and status in ('active', 'invited');
+    if v_count >= v_limit then
+      raise exception 'Plan limit reached: your plan allows at most % seat(s). Upgrade to add more members.', v_limit
+        using errcode = 'P0001';
+    end if;
+  end if;
+  return new;
+end;
+$$;
+
 -- ==============================================================================
 -- 6. Trigger Functions & Lifecycle Enforcement
 -- ==============================================================================
@@ -645,7 +701,8 @@ begin
   end if;
 
   -- 3. Organization status transitions: require active owner role
-  if new.status != old.status then
+  -- (service_role / backend admin console may change status, e.g. suspend an abusive org)
+  if new.status != old.status and v_caller_role = 'authenticated' then
     if not private.has_role(old.id, array['owner']::public.org_role[]) then
       raise exception 'Only an active organization owner can change organization status'
         using errcode = '42501';
@@ -866,6 +923,10 @@ create trigger trg_protect_last_owner
   before update or delete on public.memberships
   for each row execute function private.prevent_last_owner_removal();
 
+create trigger trg_memberships_seat_limit
+  before insert on public.memberships
+  for each row execute function private.check_seat_plan_limit();
+
 create trigger trg_memberships_immutable_keys
   before update on public.memberships
   for each row execute function private.prevent_membership_key_change();
@@ -938,6 +999,12 @@ begin
 
   v_clean_name := trim(p_name);
   v_clean_slug := lower(trim(p_slug));
+
+  -- Rate limit: at most 3 organizations per user per hour
+  if (select count(*) from public.organizations
+      where created_by = v_user_id and created_at > now() - interval '1 hour') >= 3 then
+    raise exception 'Too many workspaces created recently. Please try again later.' using errcode = '54000';
+  end if;
 
   -- Slug format validation
   if not (v_clean_slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$' and char_length(v_clean_slug) between 3 and 48) then
@@ -1206,18 +1273,18 @@ create policy brands_insert on public.brands
   for insert to authenticated
   with check (
     private.is_member(org_id)
-    and private.feature_level(org_id, 'strategy') >= 2
+    and private.feature_level(org_id, 'brand') >= 2
   );
 
 create policy brands_update on public.brands
   for update to authenticated
   using (
     private.is_member(org_id)
-    and private.feature_level(org_id, 'strategy') >= 2
+    and private.feature_level(org_id, 'brand') >= 2
   )
   with check (
     private.is_member(org_id)
-    and private.feature_level(org_id, 'strategy') >= 2
+    and private.feature_level(org_id, 'brand') >= 2
   );
 
 create policy brands_delete on public.brands
@@ -1263,6 +1330,23 @@ create policy audit_log_delete on public.audit_log
   for delete to authenticated
   using (false);
 
+-- 9.8 Plan limits (read-only reference data)
+create policy plan_limits_select on public.plan_limits
+  for select to authenticated
+  using (true);
+
+create policy plan_limits_insert on public.plan_limits
+  for insert to authenticated
+  with check (false);
+
+create policy plan_limits_update on public.plan_limits
+  for update to authenticated
+  using (false);
+
+create policy plan_limits_delete on public.plan_limits
+  for delete to authenticated
+  using (false);
+
 -- ==============================================================================
 -- 10. Function Ownership & Execution Privileges
 -- ==============================================================================
@@ -1275,6 +1359,8 @@ alter function private.can_create_membership(uuid, uuid, public.org_role) owner 
 alter function private.can_modify_membership(uuid, uuid, public.org_role) owner to postgres;
 alter function private.can_invite_role(uuid, public.org_role) owner to postgres;
 alter function private.can_manage_feature_access(uuid, uuid) owner to postgres;
+alter function private.limit_for(uuid, text) owner to postgres;
+alter function private.check_seat_plan_limit() owner to postgres;
 alter function private.prevent_last_owner_removal() owner to postgres;
 alter function private.prevent_membership_key_change() owner to postgres;
 alter function private.prevent_org_id_change() owner to postgres;
@@ -1305,6 +1391,7 @@ grant execute on function private.can_create_membership(uuid, uuid, public.org_r
 grant execute on function private.can_modify_membership(uuid, uuid, public.org_role) to authenticated;
 grant execute on function private.can_invite_role(uuid, public.org_role) to authenticated;
 grant execute on function private.can_manage_feature_access(uuid, uuid) to authenticated;
+grant execute on function private.limit_for(uuid, text) to authenticated;
 
 -- 10.5 Public RPC Execution Grants
 grant execute on function public.create_organization(text, text) to authenticated;
@@ -1317,6 +1404,9 @@ grant execute on function public.accept_invitation(text) to authenticated;
 -- ==============================================================================
 
 revoke all on all tables in schema public from public, anon;
+-- Future tables created by migrations must not be readable by anon by default
+alter default privileges in schema public revoke all on tables from anon;
+alter default privileges in schema public revoke all on functions from anon;
 
 -- Authenticated table privileges
 grant select on public.organizations to authenticated;
@@ -1330,6 +1420,9 @@ grant select, insert, delete on public.invitations to authenticated;
 
 -- audit_log: SELECT-only for authenticated. NO insert, update, or delete.
 grant select on public.audit_log to authenticated;
+
+-- plan_limits: read-only reference data
+grant select on public.plan_limits to authenticated;
 
 -- ==============================================================================
 -- 12. Supabase service_role Privileges

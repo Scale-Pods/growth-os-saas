@@ -5,7 +5,7 @@ Update the **Status** column (`Not started` / `In progress` / `Blocked` / `Done`
 | Phase | Name | Status | Started | Finished | Notes |
 |---|---|---|---|---|---|
 | P00 | Foundations | In progress | 2026-11-14 | | Done: monorepo, real ESLint (service-role/AI-SDK/console rules proven), fail-loud env validation, logger, health check, CI tests. Open: Sentry, git hooks, local supabase config, staging deploy, branch protection, zod 3.x audit advisory (fix needs zod 4 migration). Next upgraded to 15.5.29 / React 19 |
-| P01 | Tenancy and auth | Not started | | | |
+| P01 | Tenancy and auth | In progress | 2026-11-18 | | DB layer done: plan_limits, seat/brand limits, create_organization rate limit, access helpers, 353-check isolation suite (generated catalogue, mutation-tested) green locally and in CI job. Open: withOrg, invitations API/UI, Team page, audit helper, Google/Turnstile/MFA |
 | P02 | App shell | Not started | | | |
 | P03 | Brand kit and onboarding | Not started | | | |
 | P04 | Job platform | Not started | | | |
