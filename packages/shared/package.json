@@ -6,7 +6,7 @@
   "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "tsx tests/run-brandContext-test.ts && tsx tests/env.test.ts",
+    "test": "tsx tests/run-brandContext-test.ts && tsx tests/env.test.ts && tsx tests/api-guards.test.ts",
     "lint": "eslint ."
   },
   "dependencies": {

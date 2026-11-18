@@ -1,7 +1,8 @@
 "use client";
 
 import { Suspense } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { login, type AuthActionResult } from "@/app/auth/actions";
@@ -35,7 +36,7 @@ function LoginForm() {
   const redirectTo = searchParams.get("redirect") || "/dashboard";
   const callbackError = searchParams.get("error");
 
-  const [state, formAction] = useFormState<AuthActionResult, FormData>(login, {});
+  const [state, formAction] = useActionState<AuthActionResult, FormData>(login, {});
 
   return (
     <div className="w-full max-w-md p-8 rounded-2xl border border-border bg-card shadow-2xl backdrop-blur-sm">

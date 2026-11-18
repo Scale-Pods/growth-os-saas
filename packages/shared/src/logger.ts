@@ -9,7 +9,7 @@ export interface LogContext {
 
 const SECRET_KEY = /(key|secret|token|password|authorization|cookie)/i;
 
-function redact(value: unknown): unknown {
+export function redact(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(redact);
   if (value && typeof value === "object") {
     return Object.fromEntries(

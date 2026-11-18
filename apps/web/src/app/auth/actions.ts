@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { createLogger } from "@growth-os/shared";
 import { createClient } from "@/lib/supabase/server";
+import { audit } from "@/lib/api/audit";
+import { safeRedirect } from "@/lib/safe-redirect";
 
 export interface AuthActionResult {
   error?: string;
@@ -14,19 +17,27 @@ export async function login(prevState: AuthActionResult | null, formData: FormDa
 
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
-  const redirectTo = (formData.get("redirectTo") as string) || "/dashboard";
+  const redirectTo = safeRedirect(formData.get("redirectTo") as string);
 
   if (!email || !password) {
     return { error: "Email and password are required." };
   }
 
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data: signedIn, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
 
   if (error) {
     return { error: error.message };
+  }
+
+  if (signedIn.user) {
+    try {
+      await audit({ userId: signedIn.user.id }, "auth.sign_in", { type: "user", id: signedIn.user.id });
+    } catch (e) {
+      createLogger({ user_id: signedIn.user.id }).error("audit write failed", { error: e instanceof Error ? e.message : String(e) });
+    }
   }
 
   revalidatePath("/", "layout");

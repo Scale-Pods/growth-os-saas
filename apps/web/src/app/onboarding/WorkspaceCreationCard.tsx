@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { createOrganizationAction, type AuthActionResult } from "@/app/auth/actions";
 import { Building2, AlertCircle, ArrowRight } from "lucide-react";
 
@@ -33,7 +34,7 @@ export function WorkspaceCreationCard({ userEmail }: { userEmail: string }) {
   const [slug, setSlug] = useState("");
   const [manualSlug, setManualSlug] = useState(false);
 
-  const [state, formAction] = useFormState<AuthActionResult, FormData>(
+  const [state, formAction] = useActionState<AuthActionResult, FormData>(
     createOrganizationAction,
     {}
   );

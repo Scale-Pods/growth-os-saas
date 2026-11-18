@@ -8,6 +8,17 @@ const SERVICE_ROLE = {
     "The service-role key may only be read in server-only modules (apps/web/src/lib/server-only, apps/worker, packages/shared/src/env.ts).",
 };
 
+const ORG_FROM_REQUEST = [
+  {
+    selector: "MemberExpression[property.name=/^(org_id|orgId)$/][object.name=/^(body|input|payload|formData|searchParams|params|req|request)$/]",
+    message: "org_id must never be read from a request. Use ctx.orgId from withOrg / withOrgAction.",
+  },
+  {
+    selector: "CallExpression[callee.property.name='get'][arguments.0.value=/^(org_id|orgId)$/]",
+    message: "org_id must never be read from form data or query strings. Use ctx.orgId from withOrg / withOrgAction.",
+  },
+];
+
 export default tseslint.config(
   {
     ignores: ["**/node_modules/**", "**/.next/**", "**/dist/**", "**/*.d.ts", "**/next-env.d.ts", "**/.turbo/**"],
@@ -23,6 +34,11 @@ export default tseslint.config(
       // Rule 3: no provider SDKs outside packages/ai
       "no-restricted-imports": ["error", { patterns: [{ group: AI_SDKS, message: "AI provider SDKs may only be imported in packages/ai." }] }],
     },
+  },
+  // Web app: org_id never comes from the request
+  {
+    files: ["apps/web/src/**"],
+    rules: { "no-restricted-syntax": ["error", SERVICE_ROLE, ...ORG_FROM_REQUEST] },
   },
   // Service-role key allowed here only
   {

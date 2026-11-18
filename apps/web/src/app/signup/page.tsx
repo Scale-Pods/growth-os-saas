@@ -1,6 +1,7 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { signup, type AuthActionResult } from "@/app/auth/actions";
 import { Sparkles, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
@@ -29,7 +30,7 @@ function SubmitButton() {
 }
 
 export default function SignupPage() {
-  const [state, formAction] = useFormState<AuthActionResult, FormData>(signup, {});
+  const [state, formAction] = useActionState<AuthActionResult, FormData>(signup, {});
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">

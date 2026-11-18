@@ -39,6 +39,7 @@ export type Profile = {
   id: string;
   full_name: string | null;
   avatar_url: string | null;
+  email: string | null;
   email_notifications: boolean;
   created_at: string;
   updated_at: string;
@@ -226,6 +227,7 @@ export type Database = {
           id: string;
           full_name?: string | null;
           avatar_url?: string | null;
+          email?: string | null;
           email_notifications?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -234,6 +236,7 @@ export type Database = {
           id?: string;
           full_name?: string | null;
           avatar_url?: string | null;
+          email?: string | null;
           email_notifications?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -556,6 +559,18 @@ export type Database = {
           p_token: string;
         };
         Returns: string;
+      };
+      my_role: {
+        Args: { p_org: string };
+        Returns: OrgRole | null;
+      };
+      my_feature_level: {
+        Args: { p_org: string; p_feature: string };
+        Returns: number;
+      };
+      my_feature_levels: {
+        Args: { p_org: string };
+        Returns: { feature: string; level: number }[];
       };
     };
     Enums: {
