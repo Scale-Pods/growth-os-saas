@@ -26,7 +26,7 @@ export async function GET() {
       status: database ? "healthy" : "degraded",
       database,
       buildSha: process.env.VERCEL_GIT_COMMIT_SHA || process.env.BUILD_SHA || "development",
-      requestId: headers().get("x-request-id"),
+      requestId: (await headers()).get("x-request-id"),
       timestamp: new Date().toISOString(),
     },
     { status: database ? 200 : 503 },

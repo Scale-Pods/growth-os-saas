@@ -25,8 +25,8 @@ interface MembershipWithOrg {
 }
 
 export default async function ClientsPage() {
-  const supabase = createClient();
-  const cookieStore = cookies();
+  const supabase = await createClient();
+  const cookieStore = await cookies();
 
   // 1. Verify authenticated user
   const {

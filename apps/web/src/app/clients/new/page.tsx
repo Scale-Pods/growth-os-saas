@@ -18,8 +18,8 @@ interface MembershipWithOrg {
 }
 
 export default async function NewBrandPage() {
-  const supabase = createClient();
-  const cookieStore = cookies();
+  const supabase = await createClient();
+  const cookieStore = await cookies();
 
   const {
     data: { user },

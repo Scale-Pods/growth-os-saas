@@ -35,8 +35,8 @@ interface MembershipWithOrg {
 }
 
 export default async function DashboardPage() {
-  const supabase = createClient();
-  const cookieStore = cookies();
+  const supabase = await createClient();
+  const cookieStore = await cookies();
 
   // 1. Verify user session
   const {

@@ -10,7 +10,7 @@ export interface AuthActionResult {
 }
 
 export async function login(prevState: AuthActionResult | null, formData: FormData): Promise<AuthActionResult> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
@@ -34,7 +34,7 @@ export async function login(prevState: AuthActionResult | null, formData: FormDa
 }
 
 export async function signup(prevState: AuthActionResult | null, formData: FormData): Promise<AuthActionResult> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const fullName = (formData.get("fullName") as string) || "";
   const email = (formData.get("email") as string) || "";
@@ -75,7 +75,7 @@ export async function signup(prevState: AuthActionResult | null, formData: FormD
 }
 
 export async function logout(): Promise<void> {
-  const supabase = createClient();
+  const supabase = await createClient();
   await supabase.auth.signOut();
   revalidatePath("/", "layout");
   redirect("/login");
@@ -85,7 +85,7 @@ export async function createOrganizationAction(
   prevState: AuthActionResult | null,
   formData: FormData
 ): Promise<AuthActionResult> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const name = ((formData.get("name") as string) || "").trim();
   const slug = ((formData.get("slug") as string) || "").trim().toLowerCase();

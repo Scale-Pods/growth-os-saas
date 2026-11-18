@@ -58,7 +58,6 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
 
       - name: Dependency audit
-        # Non-blocking until Next.js is upgraded past 14.x (known advisories; see docs/build-plan/tracker.md)
-        continue-on-error: true
-        run: pnpm audit --audit-level=high
+        # Blocks on critical. One high remains (zod 3.x, fix only in 4.x): tracked in docs/build-plan/tracker.md
+        run: pnpm audit --audit-level=critical
 

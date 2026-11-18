@@ -26,7 +26,7 @@ export async function saveBusinessProfileAction(
   brandId: string,
   formData: FormData
 ): Promise<ActionResult<BrandProfile>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -116,7 +116,7 @@ export async function saveBrandKitAction(
   brandId: string,
   formData: FormData
 ): Promise<ActionResult<BrandKit>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -189,7 +189,7 @@ export async function saveBrandVoiceAction(
   brandId: string,
   formData: FormData
 ): Promise<ActionResult<BrandVoice>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -272,7 +272,7 @@ export async function saveBrandFactAction(
   source?: string | null,
   approved = true
 ): Promise<ActionResult<BrandFact>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -334,7 +334,7 @@ export async function deleteBrandFactAction(
   brandId: string,
   factId: string
 ): Promise<ActionResult> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase
     .from("brand_facts")
     .delete()
@@ -356,7 +356,7 @@ export async function saveBrandPillarAction(
   description?: string | null,
   target_share_pct = 25
 ): Promise<ActionResult<BrandPillar>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: brand } = await supabase
     .from("brands")
     .select("id, org_id")
@@ -412,7 +412,7 @@ export async function deleteBrandPillarAction(
   brandId: string,
   pillarId: string
 ): Promise<ActionResult> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase
     .from("brand_pillars")
     .delete()
@@ -435,7 +435,7 @@ export async function saveCompetitorAction(
   notes?: string | null,
   social_handles: Record<string, string> = {}
 ): Promise<ActionResult<Competitor>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: brand } = await supabase
     .from("brands")
     .select("id, org_id")
@@ -493,7 +493,7 @@ export async function deleteCompetitorAction(
   brandId: string,
   competitorId: string
 ): Promise<ActionResult> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase
     .from("competitors")
     .delete()
@@ -512,7 +512,7 @@ export async function createBrandAction(
   orgId: string,
   name: string
 ): Promise<ActionResult<{ id: string; name: string }>> {
-  const supabase = createClient();
+  const supabase = await createClient();
   const trimmedName = name?.trim();
 
   if (!trimmedName || trimmedName.length < 2) {
@@ -534,7 +534,7 @@ export async function createBrandAction(
   }
 
   // Set as active brand cookie
-  cookies().set("active_brand_id", data.id, {
+  (await cookies()).set("active_brand_id", data.id, {
     path: "/",
     maxAge: 31536000,
     sameSite: "lax",
@@ -549,7 +549,7 @@ export async function createBrandAction(
  * Switch active brand cookie
  */
 export async function switchBrandAction(brandId: string) {
-  cookies().set("active_brand_id", brandId, {
+  (await cookies()).set("active_brand_id", brandId, {
     path: "/",
     maxAge: 31536000,
     sameSite: "lax",
@@ -565,7 +565,7 @@ export async function updateOnboardingStateAction(
   orgId: string,
   state: Record<string, unknown>
 ): Promise<ActionResult> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { error } = await supabase
     .from("organizations")

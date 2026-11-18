@@ -1,7 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   transpilePackages: ["@growth-os/shared", "@growth-os/db", "@growth-os/ui"],
-  experimental: { instrumentationHook: true },
   async headers() {
     return [
       {
