@@ -291,10 +291,16 @@ importers:
 
   packages/shared:
     dependencies:
+      '@growth-os/db':
+        specifier: workspace:*
+        version: link:../db
       zod:
         specifier: ^3.24.2
         version: 3.25.76
     devDependencies:
+      tsx:
+        specifier: ^4.19.3
+        version: 4.23.15
       typescript:
         specifier: ^5.7.3
         version: 5.9.3

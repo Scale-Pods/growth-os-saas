@@ -1,3 +1,3 @@
-// Database types and migration exports (P00 stub)
-export const DB_VERSION = "0.0.1";
-
+// Database types and migration exports
+export const DB_VERSION = "0.1.0";
+export * from "./types";

@@ -6,7 +6,8 @@
   "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "lint": "echo \"@growth-os/db lint passed\""
+    "lint": "echo \"@growth-os/db lint passed\"",
+    "test": "tsx tests/isolation.test.ts"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
