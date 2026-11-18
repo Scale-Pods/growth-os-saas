@@ -16,6 +16,7 @@ import {
 } from "@growth-os/shared";
 import type { Database, OrgRole } from "@growth-os/db";
 import { createClient } from "@/lib/supabase/server";
+import { mfaStatusFor } from "@/lib/mfa";
 
 /** What every handler receives. orgId is derived on the server, never from the request. */
 export interface OrgContext {
@@ -75,6 +76,10 @@ async function buildContext(feature: string, level: FeatureLevelName, write: boo
   const { data: role, error: roleErr } = await supabase.rpc("my_role", { p_org: orgId });
   if (roleErr) throw new AppError("INTERNAL_ERROR", "Could not check your access.", 500, roleErr.message);
   if (!role) throw new AppError("FORBIDDEN", "Your access to this workspace is not active.", 403);
+
+  if ((await mfaStatusFor(supabase, role)) !== "ok") {
+    throw new AppError("MFA_REQUIRED", "Two-factor authentication is required for owners and admins. Complete it at /security/mfa.", 403);
+  }
 
   const { data: levelNum, error: levelErr } = await supabase.rpc("my_feature_level", {
     p_org: orgId,

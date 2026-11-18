@@ -4,6 +4,8 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { signup, type AuthActionResult } from "@/app/auth/actions";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
+import { GoogleButton } from "@/components/GoogleButton";
 import { Sparkles, AlertCircle, CheckCircle2, ArrowRight } from "lucide-react";
 
 function SubmitButton() {
@@ -62,6 +64,8 @@ export default function SignupPage() {
         )}
 
         {/* Form */}
+        <GoogleButton />
+
         <form action={formAction} className="space-y-4">
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">
@@ -108,6 +112,8 @@ export default function SignupPage() {
               Must be at least 10 characters for SaaS security compliance.
             </p>
           </div>
+
+          <TurnstileWidget resetSignal={state} />
 
           <div className="pt-2">
             <SubmitButton />

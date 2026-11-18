@@ -76,6 +76,8 @@ jobs:
           version: latest
 
       - name: Start local Supabase (applies every migration)
+        env:
+          TURNSTILE_SECRET_KEY: "1x0000000000000000000000000000000AA" # Cloudflare dummy secret: always passes
         run: supabase start --workdir packages/db -x studio,imgproxy,edge-runtime,logflare,vector,mailpit
 
       - name: Run cross-tenant isolation suite

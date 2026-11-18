@@ -7,6 +7,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { login, type AuthActionResult } from "@/app/auth/actions";
 import { Sparkles, AlertCircle, ArrowRight } from "lucide-react";
+import { TurnstileWidget } from "@/components/TurnstileWidget";
+import { GoogleButton } from "@/components/GoogleButton";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -66,6 +68,8 @@ function LoginForm() {
         </div>
       )}
 
+      <GoogleButton next={redirectTo} />
+
       {/* Form */}
       <form action={formAction} className="space-y-4">
         <input type="hidden" name="redirectTo" value={redirectTo} />
@@ -99,6 +103,8 @@ function LoginForm() {
             className="w-full px-3.5 py-2.5 rounded-xl border border-border bg-panel text-foreground placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-primary/40 text-sm transition-all"
           />
         </div>
+
+        <TurnstileWidget resetSignal={state} />
 
         <div className="pt-2">
           <SubmitButton />

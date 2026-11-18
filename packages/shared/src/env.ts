@@ -16,6 +16,8 @@ export const webEnvSchema = z
     R2_ACCESS_KEY_ID: z.string().optional(),
     R2_SECRET_ACCESS_KEY: z.string().optional(),
     R2_BUCKET_NAME: z.string().optional(),
+    NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().optional(),
+    NEXT_PUBLIC_GOOGLE_AUTH: z.enum(["true", "false"]).optional(),
     TURNSTILE_SITE_KEY: z.string().optional(),
     TURNSTILE_SECRET_KEY: z.string().optional(),
   })

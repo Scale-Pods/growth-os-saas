@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { ACTIVE_ORG_COOKIE } from "@/lib/api/with-org";
+import { mfaStatusFor } from "@/lib/mfa";
 import type { Brand, Organization, OrgRole, Profile } from "@growth-os/db";
 
 /** Everything the app shell needs for a signed-in page, loaded with the user's session (RLS applies). */
@@ -32,6 +33,9 @@ export async function getAppContext() {
   const preferred = cookieStore.get(ACTIVE_ORG_COOKIE)?.value;
   const active = memberships.find((m) => m.organization!.id === preferred) ?? memberships[0]!;
   const org = active.organization!;
+
+  // Owners and admins must complete two-factor authentication before seeing the app.
+  if ((await mfaStatusFor(supabase, active.role)) !== "ok") redirect("/security/mfa");
 
   const [{ data: brandsData }, { data: features }] = await Promise.all([
     supabase.from("brands").select("*").eq("org_id", org.id).order("created_at", { ascending: true }),

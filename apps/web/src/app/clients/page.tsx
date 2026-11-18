@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
+import { requireMfaOrRedirect } from "@/lib/mfa";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Badge } from "@/components/ui/Badge";
@@ -77,6 +78,7 @@ export default async function ClientsPage() {
 
   const activeOrg = activeMembership.organization!;
   const userRole = activeMembership.role;
+  await requireMfaOrRedirect(supabase, userRole);
 
   // 4. Fetch brands for the active organization
   const { data: brandsData } = await supabase

@@ -216,10 +216,11 @@ token_verifications = 30
 web3 = 30
 
 # Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
-# [auth.captcha]
-# enabled = true
-# provider = "hcaptcha"
-# secret = ""
+[auth.captcha]
+enabled = true
+provider = "turnstile"
+# Local/CI use Cloudflare's published dummy secrets (see packages/db/supabase/.env.example); real secrets live in the host.
+secret = "env(TURNSTILE_SECRET_KEY)"
 
 [auth.email]
 # Allow/disallow the email provider. When false, users can't sign up or sign in with email.

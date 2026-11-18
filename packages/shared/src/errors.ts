@@ -1,6 +1,7 @@
 export type ErrorCode =
   | "UNAUTHORIZED"
   | "FORBIDDEN"
+  | "MFA_REQUIRED"
   | "NOT_FOUND"
   | "VALIDATION_ERROR"
   | "PLAN_LIMIT_EXCEEDED"

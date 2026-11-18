@@ -7,6 +7,15 @@ import { createClient } from "@/lib/supabase/server";
 import { audit } from "@/lib/api/audit";
 import { safeRedirect } from "@/lib/safe-redirect";
 
+const CAPTCHA_REQUIRED = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY);
+
+/** Turnstile token from the form. Supabase Auth verifies it with Cloudflare when captcha is enabled. */
+function captchaTokenFrom(formData: FormData): { token?: string; error?: string } {
+  const token = (formData.get("cf-turnstile-response") as string) || undefined;
+  if (CAPTCHA_REQUIRED && !token) return { error: "Please complete the verification check and try again." };
+  return { token };
+}
+
 export interface AuthActionResult {
   error?: string;
   success?: string;
@@ -23,9 +32,13 @@ export async function login(prevState: AuthActionResult | null, formData: FormDa
     return { error: "Email and password are required." };
   }
 
+  const captcha = captchaTokenFrom(formData);
+  if (captcha.error) return { error: captcha.error };
+
   const { data: signedIn, error } = await supabase.auth.signInWithPassword({
     email,
     password,
+    options: { captchaToken: captcha.token },
   });
 
   if (error) {
@@ -59,10 +72,14 @@ export async function signup(prevState: AuthActionResult | null, formData: FormD
     return { error: "Password must be at least 10 characters long." };
   }
 
+  const captcha = captchaTokenFrom(formData);
+  if (captcha.error) return { error: captcha.error };
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
     options: {
+      captchaToken: captcha.token,
       data: {
         full_name: fullName.trim(),
       },

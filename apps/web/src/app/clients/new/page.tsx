@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { requireMfaOrRedirect } from "@/lib/mfa";
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
@@ -66,6 +67,7 @@ export default async function NewBrandPage() {
 
   const activeOrg = activeMembership.organization!;
   const userRole = activeMembership.role;
+  await requireMfaOrRedirect(supabase, userRole);
 
   const { data: brandsData } = await supabase
     .from("brands")
