@@ -258,6 +258,11 @@ begin
       'security definer function without a fixed search_path is injectable');
     perform isolation_test.record('catalogue', r.fname, 'anon', 'no execute',
       not has_function_privilege('anon', r.oid, 'execute'));
+    -- trigger functions are never an API surface for signed-in users either
+    if (select prorettype from pg_proc where oid = r.oid) = 'trigger'::regtype then
+      perform isolation_test.record('catalogue', r.fname, 'authenticated', 'trigger fn not executable',
+        not has_function_privilege('authenticated', r.oid, 'execute'));
+    end if;
   end loop;
 end;
 $$;
