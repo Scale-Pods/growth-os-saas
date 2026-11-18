@@ -1,21 +1,16 @@
-import { QUEUE_NAMES, validateWorkerEnv } from "@growth-os/shared";
+import { QUEUE_NAMES, createLogger, validateWorkerEnv } from "@growth-os/shared";
+
+const log = createLogger({ service: "worker" });
 
 async function main() {
-  console.log("[Worker] Starting Growth OS Worker...");
-  
-  try {
-    validateWorkerEnv(process.env);
-    console.log("[Worker] Environment validated successfully.");
-  } catch (err) {
-    console.warn("[Worker] Warning: Worker environment validation warning:", err);
-  }
-
-  console.log("[Worker] Registered queue handlers for:", Object.values(QUEUE_NAMES).join(", "));
-  console.log("[Worker] Worker initialized and ready for jobs.");
+  // Fails loudly: a missing variable stops the process before any job can run.
+  validateWorkerEnv(process.env);
+  log.info("environment validated");
+  log.info("queues registered", { queues: Object.values(QUEUE_NAMES) });
+  log.info("worker ready");
 }
 
-main().catch((err) => {
-  console.error("[Worker] Fatal error during startup:", err);
+main().catch((err: unknown) => {
+  log.error("fatal error during startup", { error: err instanceof Error ? err.message : String(err) });
   process.exit(1);
 });
-

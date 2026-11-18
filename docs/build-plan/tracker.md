@@ -4,7 +4,7 @@ Update the **Status** column (`Not started` / `In progress` / `Blocked` / `Done`
 
 | Phase | Name | Status | Started | Finished | Notes |
 |---|---|---|---|---|---|
-| P00 | Foundations | In progress | 2026-11-14 | | Monorepo scaffolded (Next.js, worker, packages, turbo, pnpm) |
+| P00 | Foundations | In progress | 2026-11-14 | | Done: monorepo, real ESLint (service-role/AI-SDK/console rules proven), fail-loud env validation, logger, health check, CI tests. Open: Sentry, git hooks, local supabase config, staging deploy, branch protection, Next 14 audit advisories (upgrade to 15.5.x needs decision) |
 | P01 | Tenancy and auth | Not started | | | |
 | P02 | App shell | Not started | | | |
 | P03 | Brand kit and onboarding | Not started | | | |

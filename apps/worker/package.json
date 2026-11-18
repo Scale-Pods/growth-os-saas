@@ -7,7 +7,7 @@
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "lint": "echo \"@growth-os/worker lint passed\""
+    "lint": "eslint ."
   },
   "dependencies": {
     "@growth-os/shared": "workspace:*"

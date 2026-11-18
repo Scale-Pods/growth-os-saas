@@ -6,16 +6,16 @@
   "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "tsx tests/run-brandContext-test.ts",
-    "lint": "echo \"@growth-os/shared lint passed\""
+    "test": "tsx tests/run-brandContext-test.ts && tsx tests/env.test.ts",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@growth-os/db": "workspace:*",
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@types/node": "^20.19.43",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3"
   }
 }
-
