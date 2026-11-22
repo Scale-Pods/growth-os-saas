@@ -17,7 +17,8 @@ export interface ModelInfo {
  * Image and video entries are seeded from the current system; their functions arrive with P07.
  */
 export const MODELS: readonly ModelInfo[] = [
-  { id: "gemini-2.5-flash", provider: "google", capability: "text", label: "Gemini 2.5 Flash" },
+  { id: "gemini-3.1-flash-lite", provider: "google", capability: "text", label: "Gemini 3.1 Flash-Lite" },
+  { id: "gemini-3.8-flash", provider: "google", capability: "text", label: "Gemini 3.8 Flash" },
   { id: "gpt-4o-mini", provider: "openai", capability: "text", label: "GPT-4o mini" },
   {
     id: "gemini-2.5-flash-image",
