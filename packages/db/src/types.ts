@@ -88,6 +88,7 @@ export type BrandProfile = {
   contact_phone: string | null;
   social_urls: Record<string, string>;
   service_areas: string[];
+  only_cite_approved_facts: boolean;
   created_at: string;
   updated_at: string;
 };
@@ -424,6 +425,7 @@ export type Database = {
           contact_phone?: string | null;
           social_urls?: Record<string, string>;
           service_areas?: string[];
+          only_cite_approved_facts?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -442,6 +444,7 @@ export type Database = {
           contact_phone?: string | null;
           social_urls?: Record<string, string>;
           service_areas?: string[];
+          only_cite_approved_facts?: boolean;
           created_at?: string;
           updated_at?: string;
         };

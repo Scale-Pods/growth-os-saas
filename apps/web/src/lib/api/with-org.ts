@@ -48,6 +48,10 @@ const limiter = new RateLimiter();
 export const ACTIVE_ORG_COOKIE = "active_org_id";
 
 /** Authenticate, resolve the active org from the session, check membership + feature level. */
+export async function requireOrgContext(feature: string, level: FeatureLevelName, write: boolean): Promise<OrgContext> {
+  return buildContext(feature, level, write);
+}
+
 async function buildContext(feature: string, level: FeatureLevelName, write: boolean): Promise<OrgContext> {
   const requestId = (await headers()).get("x-request-id") ?? crypto.randomUUID();
   const supabase = await createClient();

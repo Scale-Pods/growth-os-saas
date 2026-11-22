@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LogoUpload } from "@/components/LogoUpload";
 import Link from "next/link";
 import { clsx } from "clsx";
 import {
@@ -30,6 +31,7 @@ import { PlatformBadge } from "@/components/ui/PlatformBadge";
 import {
   saveBusinessProfileAction,
   saveBrandKitAction,
+  setOnlyCiteApprovedFactsAction,
   saveBrandVoiceAction,
   saveBrandFactAction,
   deleteBrandFactAction,
@@ -102,6 +104,9 @@ export function BrandManagementView({
   const [ctasInput, setCtasInput] = useState(initialVoice?.approved_ctas?.join("\n") || "Book a 15-min strategy call\nGet started with Growth OS\nLearn more");
   const [hashtagsInput, setHashtagsInput] = useState(initialVoice?.preferred_hashtags?.join(", ") || "#GrowthOS, #ScalePods, #B2BMarketing");
 
+  // "Only cite approved facts" switch (on by default)
+  const [onlyCite, setOnlyCite] = useState(initialProfile?.only_cite_approved_facts ?? true);
+
   // New Fact inputs
   const [newFactStatement, setNewFactStatement] = useState("");
   const [newFactSource, setNewFactSource] = useState("");
@@ -172,6 +177,18 @@ export function BrandManagementView({
     setSaving(false);
     if (res.error) showBanner("error", res.error);
     else showBanner("success", "Brand Voice & Guidelines saved.");
+  };
+
+  const handleToggleOnlyCite = async (next: boolean) => {
+    const previous = onlyCite;
+    setOnlyCite(next);
+    const res = await setOnlyCiteApprovedFactsAction(currentBrand.id, next);
+    if (res.error) {
+      setOnlyCite(previous);
+      showBanner("error", res.error);
+    } else {
+      showBanner("success", next ? "AI will cite only your approved facts." : "AI may also use well-known public facts with a named source.");
+    }
   };
 
   // 4. Add Fact
@@ -552,28 +569,20 @@ export function BrandManagementView({
               <form onSubmit={handleSaveKit} className="space-y-5">
                 {/* Logos */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="label mb-1.5 block">Light Logo URL</label>
-                    <input
-                      type="url"
-                      name="logo_url"
-                      defaultValue={initialKit?.logo_url || ""}
-                      placeholder="https://assets.yourcompany.com/logo-light.svg"
-                      className="input text-xs"
-                    />
-                    <p className="text-[10px] text-muted-foreground mt-1">SVG, PNG or WEBP (transparent background)</p>
-                  </div>
-                  <div>
-                    <label className="label mb-1.5 block">Dark Logo URL</label>
-                    <input
-                      type="url"
-                      name="logo_dark_url"
-                      defaultValue={initialKit?.logo_dark_url || ""}
-                      placeholder="https://assets.yourcompany.com/logo-dark.svg"
-                      className="input text-xs"
-                    />
-                    <p className="text-[10px] text-muted-foreground mt-1">Rendered on dark slide templates</p>
-                  </div>
+                  <LogoUpload
+                    name="logo_url"
+                    label="Light Logo"
+                    hint="PNG, JPG or WebP, up to 5 MB (transparent background works best)"
+                    brandId={currentBrand.id}
+                    defaultValue={initialKit?.logo_url || ""}
+                  />
+                  <LogoUpload
+                    name="logo_dark_url"
+                    label="Dark Logo"
+                    hint="Used on dark slide templates"
+                    brandId={currentBrand.id}
+                    defaultValue={initialKit?.logo_dark_url || ""}
+                  />
                 </div>
 
                 {/* Color Palette */}
@@ -805,11 +814,26 @@ export function BrandManagementView({
                       Only verified claims in this repository may be cited by AI generation models.
                     </p>
                   </div>
-                  <Badge tone="green">
+                  <Badge tone={onlyCite ? "green" : "orange"}>
                     <ShieldCheck className="w-3 h-3" />
-                    Fact-Gate Active
+                    {onlyCite ? "Fact-Gate Active" : "Fact-Gate Relaxed"}
                   </Badge>
                 </div>
+
+                <label className="flex items-start gap-3 rounded-xl border border-border/80 bg-panel p-3.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={onlyCite}
+                    onChange={(e) => void handleToggleOnlyCite(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 accent-primary"
+                  />
+                  <span>
+                    <span className="block text-xs font-semibold text-foreground">Only cite approved facts</span>
+                    <span className="block text-[11px] text-muted-foreground">
+                      On (recommended): the AI may use only the facts listed below. Off: it may also mention well-known public facts if it names the source. It never invents numbers either way.
+                    </span>
+                  </span>
+                </label>
 
                 {/* Add new fact card */}
                 <form onSubmit={handleAddFact} className="p-3.5 rounded-xl bg-panel border border-border/80 space-y-3">

@@ -121,4 +121,27 @@ assert.ok(header.includes("If no approved fact fits, cite NO number or statistic
 assert.ok(!header.includes("Unverified 200% ROI claim"), "Unapproved fact leaked into prompt header!");
 console.log("✓ renderPromptHeader metric-safety and fact-gate test PASSED");
 
+
+// 3. "Only cite approved facts" toggle: on by default (strict), off relaxes sourcing but never allows invention
+assert.strictEqual(ctx.onlyCiteApprovedFacts, true, "strict mode must be the default");
+const lax = buildBrandContext({
+  brand: mockBrand,
+  profile: { ...mockProfile, only_cite_approved_facts: false },
+  kit: mockKit,
+  voice: mockVoice,
+  facts: mockFacts,
+  pillars: mockPillars,
+});
+assert.strictEqual(lax.onlyCiteApprovedFacts, false);
+const laxHeader = renderPromptHeader(lax);
+assert.ok(!laxHeader.includes("You may ONLY cite"), "strict wording must not appear when the toggle is off");
+assert.ok(laxHeader.includes("5 hours saved per content marketer each week"), "approved facts still listed");
+assert.ok(/never invent/i.test(laxHeader), "inventing figures is never allowed, even when relaxed");
+assert.ok(!laxHeader.includes("Unverified 200% ROI claim"), "unapproved fact still never leaks");
+const strictHeader = renderPromptHeader(
+  buildBrandContext({ brand: mockBrand, profile: { ...mockProfile, only_cite_approved_facts: true }, facts: mockFacts })
+);
+assert.ok(strictHeader.includes("You may ONLY cite"), "strict wording present when on");
+console.log("✓ only-cite-approved-facts toggle test PASSED");
+
 console.log("\nAll brandContext unit tests PASSED successfully!");

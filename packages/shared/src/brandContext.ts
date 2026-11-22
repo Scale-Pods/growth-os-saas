@@ -43,6 +43,8 @@ export interface BrandContext {
     approvedCtas: string[];
     preferredHashtags: string[];
   };
+  /** When true (default) prompts may cite ONLY the approved facts. */
+  onlyCiteApprovedFacts: boolean;
   facts: Array<{
     statement: string;
     source?: string | null;
@@ -118,6 +120,7 @@ export function buildBrandContext(input: BrandContextInput): BrandContext {
       approvedCtas: voice?.approved_ctas?.length ? voice.approved_ctas.slice(0, 20) : ["Book a demo", "Learn more", "Get started"],
       preferredHashtags: voice?.preferred_hashtags?.length ? voice.preferred_hashtags.slice(0, 20) : [],
     },
+    onlyCiteApprovedFacts: profile?.only_cite_approved_facts ?? true,
     facts: approvedFacts,
     pillars: (pillars || []).slice(0, 10).map((p) => ({
       name: p.name.slice(0, 100),
@@ -168,7 +171,11 @@ export function renderPromptHeader(context: BrandContext): string {
 
   parts.push(`\nAPPROVED FACTS & STATISTICS:`);
   if (context.facts.length > 0) {
-    parts.push(`You may ONLY cite the following factual statements in copy or graphics:`);
+    parts.push(
+      context.onlyCiteApprovedFacts
+        ? `You may ONLY cite the following factual statements in copy or graphics:`
+        : `Prefer these approved factual statements in copy or graphics:`
+    );
     context.facts.forEach((fact, idx) => {
       const sourceStr = fact.source ? ` (Source: ${fact.source})` : "";
       parts.push(`${idx + 1}. "${fact.statement}"${sourceStr}`);
@@ -177,9 +184,15 @@ export function renderPromptHeader(context: BrandContext): string {
     parts.push(`(No verified statistics currently listed for this brand.)`);
   }
 
-  parts.push(
-    `\nCRITICAL METRIC SAFETY RULE: Under NO circumstances invent, extrapolate, or approximate statistics, percentages, or metrics. If no approved fact fits, cite NO number or statistic.`
-  );
+  if (context.onlyCiteApprovedFacts) {
+    parts.push(
+      `\nCRITICAL METRIC SAFETY RULE: Under NO circumstances invent, extrapolate, or approximate statistics, percentages, or metrics. If no approved fact fits, cite NO number or statistic.`
+    );
+  } else {
+    parts.push(
+      `\nMETRIC SAFETY RULE: Never invent, extrapolate, or approximate statistics, percentages, or metrics about this brand. You may mention a widely known public fact only if you name its source; otherwise cite no number.`
+    );
+  }
 
   if (context.pillars.length > 0) {
     parts.push(`\nCONTENT PILLARS:`);

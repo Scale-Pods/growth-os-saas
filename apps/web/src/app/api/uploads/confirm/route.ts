@@ -18,7 +18,7 @@ export const POST = withOrg({ feature: "brand", level: "view", input }, async (c
 
   const admin = createAdminClient();
   const { data: existing } = await admin.from("media_assets").select("id").eq("path", i.key).maybeSingle();
-  if (existing) return { assetId: existing.id };
+  if (existing) return { assetId: existing.id, key: i.key };
 
   const head = await headObject(i.key);
   if (!head) throw new AppError("NOT_FOUND", "The file was not uploaded. Please try again.", 404);
@@ -53,5 +53,5 @@ export const POST = withOrg({ feature: "brand", level: "view", input }, async (c
   if (sniffed.startsWith("image/")) {
     await createJob(ctx, { kind: "media.normalize", brandId: parsed.brandId, input: { assetId: asset.id } });
   }
-  return { assetId: asset.id };
+  return { assetId: asset.id, key: i.key };
 });
