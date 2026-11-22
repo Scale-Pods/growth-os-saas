@@ -29,8 +29,8 @@ async function main() {
   let failed = 0;
   for (const [model, key, make] of runs) {
     if (!key) {
-      process.stdout.write(`SKIP  ${model}  (key not set)` + "
-");
+      process.stdout.write(`SKIP  ${model}  (key not set)
+`);
       continue;
     }
     ledgerLog.length = 0;
@@ -53,12 +53,12 @@ async function main() {
           maxOutputTokens: 200,
         },
       );
-      process.stdout.write(`PASS  ${model}  reply="${out.text.trim().slice(0, 40)}"  credits=${out.credits}  usd=${out.costUsd}  ledger=${ledgerLog.join(",")}` + "
-");
+      process.stdout.write(`PASS  ${model}  reply="${out.text.trim().slice(0, 40)}"  credits=${out.credits}  usd=${out.costUsd}  ledger=${ledgerLog.join(",")}
+`);
     } catch (e) {
       failed++;
-      process.stdout.write(`FAIL  ${model}  ${e instanceof Error ? e.message : String(e)}  ledger=${ledgerLog.join(",")}` + "
-");
+      process.stdout.write(`FAIL  ${model}  ${e instanceof Error ? e.message : String(e)}  ledger=${ledgerLog.join(",")}
+`);
     }
   }
   process.exit(failed ? 1 : 0);
