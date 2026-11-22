@@ -22,11 +22,28 @@ import { getSocialProvider } from "@growth-os/social";
 import { publishPost } from "./publish";
 import { supabaseHealthStore, supabasePublishStore } from "./publish-store";
 import { runHealthCheck } from "./health-check";
+import { buildGatewayDeps, DEFAULT_TEXT_MODEL } from "./research/ai-deps";
+import { collectorsFromEnv } from "./research/collectors";
+import { supabaseResearchStore } from "./research/store";
+import { intelligenceHandler } from "./research/intelligence";
+import { strategyHandler, strategySectionHandler } from "./research/strategy";
+import { trendScanHandler } from "./research/trends";
+import { fetchPageText } from "./web-text";
+import { AppError } from "@growth-os/shared";
 
 const log = createLogger({ service: "worker" });
 
 /** Queues that call AI providers and are limited per organization. */
-const GATED_QUEUES = new Set<string>([QUEUE_NAMES.AI_TEXT, QUEUE_NAMES.AI_IMAGE, QUEUE_NAMES.AI_VIDEO]);
+const GATED_QUEUES = new Set<string>([QUEUE_NAMES.AI_TEXT, QUEUE_NAMES.AI_IMAGE, QUEUE_NAMES.AI_VIDEO, QUEUE_NAMES.TRENDS_SCAN]);
+
+/** One queue can carry several kinds of job (ai.text does). Route by the job's kind; an unknown kind fails with a reason. */
+function byKind(map: Record<string, Handler>): Handler {
+  return async (ctx) => {
+    const h = map[ctx.job.kind];
+    if (!h) throw new AppError("INTERNAL_ERROR", `This worker cannot run "${ctx.job.kind}" jobs.`, 500);
+    return h(ctx);
+  };
+}
 
 
 async function main() {
@@ -38,9 +55,20 @@ async function main() {
   const store = supabaseJobStore(db);
   const objects = r2FromEnv(process.env);
   /** Handlers by queue. Later phases add theirs here; a queue without a handler is not consumed. */
+  const gateway = buildGatewayDeps(db, process.env);
+  const research = supabaseResearchStore(db);
+  const model = process.env.AI_DEFAULT_TEXT_MODEL || DEFAULT_TEXT_MODEL;
+  const researchDeps = { store: research, gateway, model, now: () => new Date(), log };
+  const collectors = collectorsFromEnv({ NODE_ENV: process.env.NODE_ENV, TREND_COLLECTORS: process.env.TREND_COLLECTORS });
   const HANDLERS: Partial<Record<JobQueueName, Handler>> = {
     [QUEUE_NAMES.SYSTEM_DUMMY]: dummyHandler,
     [QUEUE_NAMES.MEDIA_NORMALIZE]: mediaNormalizeHandler(db, objects),
+    [QUEUE_NAMES.AI_TEXT]: byKind({
+      "intelligence.generate": intelligenceHandler({ store: research, gateway, model, fetchPage: (u) => fetchPageText(u), log }),
+      "strategy.generate": strategyHandler(researchDeps),
+      "strategy.regenerate_section": strategySectionHandler(researchDeps),
+    }),
+    [QUEUE_NAMES.TRENDS_SCAN]: trendScanHandler({ store: research, gateway, model, collectors, log }),
   };
 
   // Fails at startup in production if SOCIAL_PROVIDER is not chosen (never falls back to the fake there).

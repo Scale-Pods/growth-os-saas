@@ -21,6 +21,7 @@ export const JOB_QUEUES = [
   QUEUE_NAMES.RENDER_VIDEO,
   QUEUE_NAMES.SYSTEM_DUMMY,
   QUEUE_NAMES.MEDIA_NORMALIZE,
+  QUEUE_NAMES.TRENDS_SCAN,
 ] as const;
 
 export type JobQueueName = (typeof JOB_QUEUES)[number];
@@ -38,6 +39,10 @@ export const JOB_KIND_TO_QUEUE: Record<string, JobQueueName> = {
   "render.carousel": QUEUE_NAMES.RENDER_CAROUSEL,
   "render.video": QUEUE_NAMES.RENDER_VIDEO,
   "media.normalize": QUEUE_NAMES.MEDIA_NORMALIZE,
+  "intelligence.generate": QUEUE_NAMES.AI_TEXT,
+  "strategy.generate": QUEUE_NAMES.AI_TEXT,
+  "strategy.regenerate_section": QUEUE_NAMES.AI_TEXT,
+  "trends.scan": QUEUE_NAMES.TRENDS_SCAN,
 };
 
 /** Retry policy: provider errors retry with back-off; validation and credit failures never retry. */
@@ -53,4 +58,19 @@ export const JOB_ETA_SECONDS: Record<string, number> = {
   "render.carousel": 30,
   "render.video": 120,
   "media.normalize": 5,
+  "intelligence.generate": 90,
+  "strategy.generate": 120,
+  "strategy.regenerate_section": 25,
+  "trends.scan": 60,
+};
+
+/**
+ * Rough credit cost shown BEFORE an action runs (the real cost is settled afterwards and is usually lower).
+ * Kept here so the screens and the server agree.
+ */
+export const ESTIMATED_CREDITS: Record<string, number> = {
+  "intelligence.generate": 8,
+  "strategy.generate": 12,
+  "strategy.regenerate_section": 2,
+  "trends.scan": 4,
 };

@@ -269,6 +269,12 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: ^3.1175.0
         version: 3.1175.0
+      '@growth-os/ai':
+        specifier: workspace:*
+        version: link:../../packages/ai
+      '@growth-os/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@growth-os/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -300,6 +306,9 @@ importers:
       '@growth-os/shared':
         specifier: workspace:*
         version: link:../shared
+      zod:
+        specifier: ^3.24.2
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^20.19.43

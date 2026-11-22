@@ -231,6 +231,28 @@ begin
 end;
 $$;
 
+-- P06 fixtures
+do $$
+declare
+  v_org_a uuid := isolation_test.id('org_a'); v_org_b uuid := isolation_test.id('org_b');
+  v_brand_a uuid := isolation_test.id('brand_a'); v_brand_b uuid := isolation_test.id('brand_b');
+  v_run_a uuid; v_run_b uuid; v_sig_a uuid; v_sig_b uuid; v_strat_a uuid; v_strat_b uuid; v_cand_a uuid;
+begin
+  insert into public.intelligence_reports (org_id, brand_id, status, sections)
+    values (v_org_a, v_brand_a, 'completed', '{"website":"Org A secret analysis"}'), (v_org_b, v_brand_b, 'completed', '{"website":"Org B secret analysis"}');
+  insert into public.trend_runs (org_id, brand_id, status) values (v_org_a, v_brand_a, 'completed') returning id into v_run_a;
+  insert into public.trend_runs (org_id, brand_id, status) values (v_org_b, v_brand_b, 'completed') returning id into v_run_b;
+  insert into public.trend_signals (org_id, brand_id, run_id, source, topic, relevance_score) values (v_org_a, v_brand_a, v_run_a, 'Reddit', 'Org A secret topic', 80) returning id into v_sig_a;
+  insert into public.trend_signals (org_id, brand_id, run_id, source, topic, relevance_score) values (v_org_b, v_brand_b, v_run_b, 'Reddit', 'Org B secret topic', 70) returning id into v_sig_b;
+  insert into public.strategies (org_id, brand_id, status, scope, ai_summary) values (v_org_a, v_brand_a, 'completed', 'week', 'Org A secret strategy') returning id into v_strat_a;
+  insert into public.strategies (org_id, brand_id, status, scope, ai_summary) values (v_org_b, v_brand_b, 'completed', 'week', 'Org B secret strategy') returning id into v_strat_b;
+  insert into public.strategy_signals (org_id, strategy_id, signal_id) values (v_org_a, v_strat_a, v_sig_a), (v_org_b, v_strat_b, v_sig_b);
+  insert into public.competitor_candidates (org_id, brand_id, name, website_url, reason) values (v_org_a, v_brand_a, 'Candidate A Inc', 'https://candidate-a.example', 'Sells the same thing') returning id into v_cand_a;
+  insert into public.competitor_candidates (org_id, brand_id, name, website_url, reason) values (v_org_b, v_brand_b, 'Candidate B Inc', 'https://candidate-b.example', 'Sells the same thing');
+  insert into isolation_test.ids values ('sig_a', v_sig_a), ('sig_b', v_sig_b), ('strat_a', v_strat_a), ('strat_b', v_strat_b), ('cand_a', v_cand_a);
+end;
+$$;
+
 -- ==============================================================================
 -- A. CATALOGUE CHECKS
 -- ==============================================================================
@@ -958,6 +980,140 @@ begin
   perform isolation_test.record('posts', 'scheduled_posts', 'b_owner', 'cannot read org A captions', v_n = 0, 'rows=' || v_n);
   v_n := isolation_test.count_as('a_viewer', 'select count(*) from public.scheduled_posts where caption = ''Org A secret caption''');
   perform isolation_test.record('posts', 'scheduled_posts', 'a_viewer', 'member can read org captions', v_n = 1, 'rows=' || v_n);
+end;
+$$;
+
+
+-- C10. Research and strategy (P06) --------------------------------------------------------
+do $$
+declare
+  v_a uuid := isolation_test.id('org_a');
+  v_b uuid := isolation_test.id('org_b');
+  v_brand_a uuid := isolation_test.id('brand_a');
+  v_brand_b uuid := isolation_test.id('brand_b');
+  v_user uuid := isolation_test.id('a_owner');
+  v_sig_a uuid := isolation_test.id('sig_a');
+  v_sig_b uuid := isolation_test.id('sig_b');
+  v_s1 uuid := isolation_test.id('strat_a');
+  v_cand uuid := isolation_test.id('cand_a');
+  res record; v_job uuid; v_row uuid; v_job2 uuid; v_row2 uuid; v_job3 uuid; v_row3 uuid; v_msg text; v_s2 uuid; v_n int; v_n2 int; v_status text; v_status2 text; v_jobs_before int; v_comp uuid;
+begin
+  -- Starting a job creates the job row AND its placeholder row together
+  select * into res from isolation_test.try('postgres', format('select * from public.start_content_job(%L, %L, %L, %L, ''{}''::jsonb)', 'intelligence.generate', v_a, v_brand_a, v_user));
+  perform isolation_test.record('research', 'start_content_job', 'postgres', 'intelligence job starts', res.state is null, coalesce(res.msg, ''));
+  select job_id, row_id into v_job, v_row from public.start_content_job('intelligence.generate', v_a, v_brand_a, v_user, '{}'::jsonb);
+  select count(*) into v_n from public.jobs where id = v_job and kind = 'intelligence.generate' and status = 'queued' and org_id = v_a;
+  select count(*) into v_n2 from public.intelligence_reports where id = v_row and job_id = v_job and status = 'processing' and org_id = v_a and brand_id = v_brand_a;
+  perform isolation_test.record('research', 'start_content_job', 'postgres', 'job and placeholder exist together and are linked', v_n = 1 and v_n2 = 1, 'job=' || v_n || ' report=' || v_n2);
+
+  select job_id, row_id into v_job, v_row from public.start_content_job('trends.scan', v_a, v_brand_a, v_user, '{"sources":["Reddit","YouTube"]}'::jsonb);
+  select count(*) into v_n from public.trend_runs where id = v_row and job_id = v_job and sources_requested = array['Reddit','YouTube'];
+  perform isolation_test.record('research', 'start_content_job', 'postgres', 'trend scan records the chosen sources', v_n = 1, 'rows=' || v_n);
+
+  select * into res from isolation_test.try('postgres', format('select * from public.start_content_job(%L, %L, %L, %L, ''{"sources":["Myspace"]}''::jsonb)', 'trends.scan', v_a, v_brand_a, v_user));
+  perform isolation_test.record('research', 'start_content_job', 'postgres', 'unknown trend source refused', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+
+  -- Strategy: signals must belong to the same brand; nothing is created when a check fails
+  select job_id, row_id into v_job, v_s2 from public.start_content_job('strategy.generate', v_a, v_brand_a, v_user,
+    jsonb_build_object('scope', 'month', 'platform', 'linkedin', 'content_type', 'post', 'signal_ids', jsonb_build_array(v_sig_a)));
+  select count(*) into v_n from public.strategies where id = v_s2 and job_id = v_job and status = 'processing' and scope = 'month' and platform = 'linkedin' and source_signal_ids = array[v_sig_a];
+  select count(*) into v_n2 from public.strategy_signals where strategy_id = v_s2 and signal_id = v_sig_a;
+  perform isolation_test.record('research', 'start_content_job', 'postgres', 'strategy placeholder keeps scope, platform and linked signals', v_n = 1 and v_n2 = 1, 'strategy=' || v_n || ' links=' || v_n2);
+  select source_signals_snapshot->0->>'topic' into v_status from public.strategies where id = v_s2;
+  perform isolation_test.record('research', 'start_content_job', 'postgres', 'strategy keeps a snapshot of its source signals', v_status = 'Org A secret topic', 'topic=' || coalesce(v_status, '-'));
+
+  select count(*) into v_jobs_before from public.jobs where org_id = v_a;
+  select * into res from isolation_test.try('postgres', format('select * from public.start_content_job(%L, %L, %L, %L, %L::jsonb)', 'strategy.generate', v_a, v_brand_a, v_user,
+    jsonb_build_object('scope', 'week', 'signal_ids', jsonb_build_array(v_sig_b))::text));
+  perform isolation_test.record('research', 'start_content_job', 'postgres', 'another workspace''s signal is refused', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select count(*) into v_n from public.jobs where org_id = v_a;
+  perform isolation_test.record('research', 'start_content_job', 'postgres', 'a refused start leaves no orphan job', v_n = v_jobs_before, 'before=' || v_jobs_before || ' after=' || v_n);
+
+  select * into res from isolation_test.try('postgres', format('select * from public.start_content_job(%L, %L, %L, %L, ''{"scope":"year"}''::jsonb)', 'strategy.generate', v_a, v_brand_a, v_user));
+  perform isolation_test.record('research', 'start_content_job', 'postgres', 'unknown scope refused', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('postgres', format('select * from public.start_content_job(%L, %L, %L, %L, ''{}''::jsonb)', 'intelligence.generate', v_a, v_brand_b, v_user));
+  perform isolation_test.record('research', 'start_content_job', 'postgres', 'brand from another workspace refused', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('postgres', format('select * from public.start_content_job(%L, %L, %L, %L, ''{}''::jsonb)', 'rm.rf', v_a, v_brand_a, v_user));
+  perform isolation_test.record('research', 'start_content_job', 'postgres', 'unknown job kind refused', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+
+  -- Only one approved strategy per brand
+  update public.strategies set status = 'completed' where id = v_s2;
+  select * into res from isolation_test.try('a_admin', format('select public.approve_strategy(%L)', v_s1));
+  perform isolation_test.record('strategy', 'approve_strategy', 'a_admin', 'editor with Full access can approve', res.state is null, coalesce(res.msg, ''));
+  select * into res from isolation_test.try('a_admin', format('select public.approve_strategy(%L)', v_s2));
+  select status into v_status from public.strategies where id = v_s1;
+  select status into v_status2 from public.strategies where id = v_s2;
+  perform isolation_test.record('strategy', 'approve_strategy', 'a_admin', 'approving another strategy demotes the first', v_status = 'completed' and v_status2 = 'approved', 'first=' || v_status || ' second=' || v_status2);
+  select count(*) into v_n from public.strategies where brand_id = v_brand_a and status = 'approved';
+  perform isolation_test.record('strategy', 'approve_strategy', 'postgres', 'exactly one approved strategy per brand', v_n = 1, 'approved=' || v_n);
+  select * into res from isolation_test.try('postgres', format('update public.strategies set status = ''approved'' where id = %L', v_s1));
+  perform isolation_test.record('strategy', 'strategies', 'postgres', 'the database refuses two approved strategies', res.state = '23505', coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('a_viewer', format('select public.approve_strategy(%L)', v_s1));
+  perform isolation_test.record('strategy', 'approve_strategy', 'a_viewer', 'viewer cannot approve', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('b_owner', format('select public.approve_strategy(%L)', v_s1));
+  perform isolation_test.record('strategy', 'approve_strategy', 'b_owner', 'stranger cannot approve', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('anon', format('select public.approve_strategy(%L)', v_s1));
+  perform isolation_test.record('strategy', 'approve_strategy', 'anon', 'anonymous cannot approve', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  update public.strategies set status = 'failed' where id = v_s1;
+  select * into res from isolation_test.try('a_admin', format('select public.approve_strategy(%L)', v_s1));
+  perform isolation_test.record('strategy', 'approve_strategy', 'a_admin', 'a failed strategy cannot be approved', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  update public.strategies set status = 'completed' where id = v_s1;
+
+  -- Signed-in users cannot write generated content directly
+  select * into res from isolation_test.try('a_admin', format('update public.strategies set ai_summary = ''forged'' where id = %L', v_s1));
+  perform isolation_test.record('strategy', 'strategies', 'a_admin', 'generated content cannot be edited from the browser', res.state = '42501', coalesce(res.msg, 'ACCEPTED'));
+
+  -- Signal scores stay in range
+  select * into res from isolation_test.try('postgres', format('insert into public.trend_signals (org_id, brand_id, run_id, source, topic, relevance_score) values (%L, %L, (select id from public.trend_runs where org_id = %L limit 1), ''Reddit'', ''x'', 150)', v_a, v_brand_a, v_a));
+  perform isolation_test.record('research', 'trend_signals', 'postgres', 'relevance score above 100 refused', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+
+  -- Competitor candidates: accept creates a competitor, once; reject closes it
+  select * into res from isolation_test.try('a_viewer', format('select public.accept_competitor_candidate(%L)', v_cand));
+  perform isolation_test.record('research', 'accept_competitor_candidate', 'a_viewer', 'viewer cannot accept', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('b_owner', format('select public.accept_competitor_candidate(%L)', v_cand));
+  perform isolation_test.record('research', 'accept_competitor_candidate', 'b_owner', 'stranger cannot accept', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('a_admin', format('select public.accept_competitor_candidate(%L)', v_cand));
+  perform isolation_test.record('research', 'accept_competitor_candidate', 'a_admin', 'editor can accept', res.state is null, coalesce(res.msg, ''));
+  select count(*) into v_n from public.competitors where org_id = v_a and brand_id = v_brand_a and name = 'Candidate A Inc' and website_url = 'https://candidate-a.example';
+  perform isolation_test.record('research', 'competitors', 'postgres', 'accepted candidate became a competitor', v_n = 1, 'rows=' || v_n);
+  select * into res from isolation_test.try('a_admin', format('select public.accept_competitor_candidate(%L)', v_cand));
+  perform isolation_test.record('research', 'accept_competitor_candidate', 'a_admin', 'cannot accept the same candidate twice', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select count(*) into v_n from public.competitors where org_id = v_a and name = 'Candidate A Inc';
+  perform isolation_test.record('research', 'competitors', 'postgres', 'no duplicate competitor created', v_n = 1, 'rows=' || v_n);
+  insert into public.competitor_candidates (org_id, brand_id, name, website_url, reason) values (v_a, v_brand_a, 'Candidate Two', 'https://two.example', 'r') returning id into v_comp;
+  select * into res from isolation_test.try('a_admin', format('select public.reject_competitor_candidate(%L)', v_comp));
+  select status into v_status from public.competitor_candidates where id = v_comp;
+  perform isolation_test.record('research', 'reject_competitor_candidate', 'a_admin', 'reject closes the candidate', res.state is null and v_status = 'rejected', coalesce(res.msg, 'status=' || v_status));
+
+  -- Rescue: when a worker dies mid-job, the placeholder rows must not stay "processing" forever
+  select job_id, row_id into v_job, v_row from public.start_content_job('intelligence.generate', v_a, v_brand_a, v_user, '{}'::jsonb);
+  update public.jobs set status = 'running', started_at = now() - interval '40 minutes', heartbeat_at = now() - interval '30 minutes' where id = v_job;
+  select job_id, row_id into v_job2, v_row2 from public.start_content_job('strategy.generate', v_a, v_brand_a, v_user, '{"scope":"week"}'::jsonb);
+  update public.jobs set status = 'running', started_at = now() - interval '40 minutes', heartbeat_at = now() - interval '30 minutes' where id = v_job2;
+  select job_id, row_id into v_job3, v_row3 from public.start_content_job('trends.scan', v_a, v_brand_a, v_user, '{}'::jsonb);
+  update public.jobs set status = 'running', started_at = now() - interval '40 minutes', heartbeat_at = now() - interval '30 minutes' where id = v_job3;
+  perform public.rescue_stuck_jobs(10);
+  select status, error_message into v_status, v_msg from public.intelligence_reports where id = v_row;
+  perform isolation_test.record('research', 'rescue_stuck_jobs', 'postgres', 'stuck report is failed with a reason', v_status = 'failed' and length(coalesce(v_msg, '')) > 10, 'status=' || v_status);
+  select status, error_detail into v_status, v_msg from public.strategies where id = v_row2;
+  perform isolation_test.record('research', 'rescue_stuck_jobs', 'postgres', 'stuck strategy is failed with a reason', v_status = 'failed' and length(coalesce(v_msg, '')) > 10, 'status=' || v_status);
+  select status, error_message into v_status, v_msg from public.trend_runs where id = v_row3;
+  perform isolation_test.record('research', 'rescue_stuck_jobs', 'postgres', 'stuck trend run is failed with a reason', v_status = 'failed' and length(coalesce(v_msg, '')) > 10, 'status=' || v_status);
+  -- a finished report is never touched by the rescue
+  select count(*) into v_n from public.intelligence_reports where org_id = v_a and status = 'completed';
+  perform isolation_test.record('research', 'rescue_stuck_jobs', 'postgres', 'completed reports are left alone', v_n >= 1, 'completed=' || v_n);
+
+  -- Who can call what
+  perform isolation_test.record('research', 'start_content_job', 'authenticated', 'cannot execute (server only)', not has_function_privilege('authenticated', 'public.start_content_job(text,uuid,uuid,uuid,jsonb)', 'execute'));
+  perform isolation_test.record('research', 'start_content_job', 'service_role', 'can execute', has_function_privilege('service_role', 'public.start_content_job(text,uuid,uuid,uuid,jsonb)', 'execute'));
+  perform isolation_test.record('strategy', 'approve_strategy', 'authenticated', 'can execute (checks access inside)', has_function_privilege('authenticated', 'public.approve_strategy(uuid)', 'execute'));
+  perform isolation_test.record('strategy', 'approve_strategy', 'anon', 'cannot execute', not has_function_privilege('anon', 'public.approve_strategy(uuid)', 'execute'));
+
+  -- A stranger cannot read org A's research (matrix covers every command; spot check the secret text)
+  v_n := isolation_test.count_as('b_owner', 'select count(*) from public.intelligence_reports where sections::text like ''%Org A secret%''');
+  perform isolation_test.record('research', 'intelligence_reports', 'b_owner', 'cannot read org A reports', v_n = 0, 'rows=' || v_n);
+  v_n := isolation_test.count_as('a_viewer', 'select count(*) from public.intelligence_reports where sections::text like ''%Org A secret%''');
+  perform isolation_test.record('research', 'intelligence_reports', 'a_viewer', 'member can read org reports', v_n = 1, 'rows=' || v_n);
 end;
 $$;
 

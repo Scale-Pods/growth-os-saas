@@ -8,10 +8,11 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "tsx tests/runner.test.ts && tsx tests/normalize.test.ts && tsx tests/publish.test.ts && tsx tests/health-check.test.ts",
+    "test": "tsx tests/runner.test.ts && tsx tests/normalize.test.ts && tsx tests/publish.test.ts && tsx tests/health-check.test.ts && tsx tests/web-text.test.ts && tsx tests/research.test.ts",
     "start": "tsx --env-file-if-exists=.env.local src/index.ts",
     "smoke": "tsx --env-file-if-exists=.env.local scripts/smoke-dummy-jobs.mts",
-    "smoke:publish": "tsx --env-file-if-exists=.env.local scripts/smoke-publish.mts"
+    "smoke:publish": "tsx --env-file-if-exists=.env.local scripts/smoke-publish.mts",
+    "smoke:research": "tsx --env-file-if-exists=.env.local scripts/smoke-research.mts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1175.0",
@@ -20,7 +21,9 @@
     "pg-boss": "^12.38.2",
     "sharp": "^0.35.5",
     "@growth-os/social": "workspace:*",
-    "@aws-sdk/s3-request-presigner": "^3.1175.0"
+    "@aws-sdk/s3-request-presigner": "^3.1175.0",
+    "@growth-os/ai": "workspace:*",
+    "@growth-os/db": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.17.17",

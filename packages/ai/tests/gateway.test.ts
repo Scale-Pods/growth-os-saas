@@ -241,6 +241,20 @@ async function main() {
     assert.deepEqual(out.data, { a: 1 });
   }
 
+  // 11. a provider that is not configured is refused BEFORE credits are reserved (nothing to release, nothing stuck)
+  {
+    const { state, ledger } = makeLedger(1000);
+    const { provider } = makeProvider([ok("never")]);
+    const { d } = deps(ledger, provider, {
+      providerFor: () => {
+        throw new AppError("INTERNAL_ERROR", "AI is not configured on this server yet.", 503);
+      },
+    });
+    await expectAppError(generateText(d, base()), "INTERNAL_ERROR");
+    assert.deepEqual(state.log, [], "no reservation was made");
+    assert.equal(state.balance, 1000);
+  }
+
   console.log("✓ ai gateway tests PASSED");
 }
 

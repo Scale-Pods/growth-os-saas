@@ -98,6 +98,9 @@ async function billed<T extends { text: string }>(
   }
   const reserveCredits = usdToCredits(estimateUsd);
 
+  // Resolve the provider BEFORE reserving: a missing key must refuse the call without leaving a reservation behind.
+  const provider = d.providerFor(a.model);
+
   try {
     await d.ledger.reserve({ orgId: a.orgId, userId: a.userId, jobId: a.jobId, credits: reserveCredits });
   } catch (e) {
@@ -105,7 +108,6 @@ async function billed<T extends { text: string }>(
   }
 
   const billing: Billing = { inputTokens: 0, outputTokens: 0 };
-  const provider = d.providerFor(a.model);
   const system = `${a.system}\n\n${UNTRUSTED_DATA_RULE}`;
 
   const call = async (req: CallRequest): Promise<string> => {

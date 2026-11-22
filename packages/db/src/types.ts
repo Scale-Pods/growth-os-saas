@@ -316,6 +316,104 @@ export type PostEdit = {
   created_at: string;
 };
 
+export type IntelligenceSectionKey = "website" | "instagram" | "facebook" | "linkedin" | "competitors" | "seo" | "audience";
+export type IntelligenceReport = {
+  id: string;
+  org_id: string;
+  brand_id: string;
+  job_id: string | null;
+  status: "pending" | "processing" | "completed" | "failed";
+  sections: Partial<Record<IntelligenceSectionKey, string>>;
+  full_report: string | null;
+  error_message: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TrendRun = {
+  id: string;
+  org_id: string;
+  brand_id: string;
+  job_id: string | null;
+  status: "pending" | "running" | "completed" | "partial" | "failed";
+  sources_requested: string[];
+  sources_completed: string[];
+  source_status: Record<string, { ok: boolean; items?: number; reason?: string }>;
+  ai_summary: string | null;
+  error_message: string | null;
+  created_by: string | null;
+  created_at: string;
+  finished_at: string | null;
+};
+
+export type TrendSignal = {
+  id: string;
+  org_id: string;
+  brand_id: string;
+  run_id: string;
+  source: string;
+  topic: string;
+  relevance_score: number;
+  relevance_reason: string | null;
+  url: string | null;
+  meta: Record<string, Json | undefined>;
+  created_at: string;
+};
+
+export type StrategyScope = "day" | "week" | "month";
+export type StrategySectionKey =
+  | "campaign_planning"
+  | "weekly_content_strategy"
+  | "content_pillars"
+  | "platform_strategy"
+  | "lead_generation_strategy"
+  | "cta_strategy";
+export type CalendarItem = {
+  scheduled_date: string | null;
+  platform: string;
+  content_type: string;
+  title: string;
+  hook?: string;
+  pillar?: string;
+};
+export type Strategy = {
+  id: string;
+  org_id: string;
+  brand_id: string;
+  job_id: string | null;
+  status: "processing" | "completed" | "approved" | "failed";
+  scope: StrategyScope;
+  platform: string;
+  content_type: string;
+  source_signal_ids: string[];
+  source_signals_snapshot: { id: string; source: string; topic: string }[];
+  ai_summary: string | null;
+  sections: Partial<Record<StrategySectionKey, Json>>;
+  content_calendar: CalendarItem[];
+  header_insights: Json | null;
+  pillar_balance: Json | null;
+  error_detail: string | null;
+  created_by: string | null;
+  approved_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CompetitorCandidate = {
+  id: string;
+  org_id: string;
+  brand_id: string;
+  job_id: string | null;
+  name: string;
+  website_url: string | null;
+  reason: string | null;
+  evidence_url: string | null;
+  status: "suggested" | "accepted" | "rejected";
+  decided_at: string | null;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -789,6 +887,52 @@ export type Database = {
         Update: { used_at?: string | null };
         Relationships: [];
       };
+      intelligence_reports: {
+        Row: IntelligenceReport;
+        Insert: { org_id: string; brand_id: string; job_id?: string | null; status?: IntelligenceReport["status"]; sections?: IntelligenceReport["sections"]; created_by?: string | null };
+        Update: Partial<IntelligenceReport>;
+        Relationships: [];
+      };
+      trend_runs: {
+        Row: TrendRun;
+        Insert: { org_id: string; brand_id: string; job_id?: string | null; status?: TrendRun["status"]; sources_requested?: string[]; created_by?: string | null };
+        Update: Partial<TrendRun>;
+        Relationships: [];
+      };
+      trend_signals: {
+        Row: TrendSignal;
+        Insert: {
+          org_id: string;
+          brand_id: string;
+          run_id: string;
+          source: string;
+          topic: string;
+          relevance_score: number;
+          relevance_reason?: string | null;
+          url?: string | null;
+          meta?: TrendSignal["meta"];
+        };
+        Update: Partial<TrendSignal>;
+        Relationships: [];
+      };
+      strategies: {
+        Row: Strategy;
+        Insert: { org_id: string; brand_id: string; scope?: StrategyScope; status?: Strategy["status"]; ai_summary?: string | null };
+        Update: Partial<Strategy>;
+        Relationships: [];
+      };
+      strategy_signals: {
+        Row: { id: string; org_id: string; strategy_id: string; signal_id: string; created_at: string };
+        Insert: { org_id: string; strategy_id: string; signal_id: string };
+        Update: Record<string, never>;
+        Relationships: [];
+      };
+      competitor_candidates: {
+        Row: CompetitorCandidate;
+        Insert: { org_id: string; brand_id: string; name: string; job_id?: string | null; website_url?: string | null; reason?: string | null; evidence_url?: string | null };
+        Update: Partial<CompetitorCandidate>;
+        Relationships: [];
+      };
     };
     Views: {
       credit_balance: {
@@ -797,6 +941,13 @@ export type Database = {
       };
     };
     Functions: {
+      start_content_job: {
+        Args: { p_kind: string; p_org: string; p_brand: string; p_user: string | null; p_input?: Json };
+        Returns: { job_id: string; row_id: string }[];
+      };
+      approve_strategy: { Args: { p_strategy: string }; Returns: undefined };
+      accept_competitor_candidate: { Args: { p_candidate: string }; Returns: string };
+      reject_competitor_candidate: { Args: { p_candidate: string }; Returns: undefined };
       claim_due_posts: { Args: { p_limit?: number }; Returns: { id: string; org_id: string; brand_id: string }[] };
       rescue_stuck_posts: { Args: { p_minutes?: number }; Returns: number };
       consume_connect_state: { Args: { p_hash: string }; Returns: { org_id: string; brand_id: string; user_id: string }[] };

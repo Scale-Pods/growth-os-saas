@@ -4,3 +4,8 @@ export * from "./ports";
 export * from "./gateway";
 export * from "./providers";
 export * from "./supabase-adapters";
+export * from "./prompts/common";
+export * from "./prompts/intelligence";
+export * from "./prompts/strategy";
+export * from "./prompts/trends";
+export * from "./prompts/facts";

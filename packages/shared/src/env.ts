@@ -40,6 +40,10 @@ export const workerEnvSchema = z.object({
   NODE_ENV: nodeEnv,
   DATABASE_URL: z.string().min(1),
   SOCIAL_PROVIDER: z.string().optional(),
+  // Default text model for research jobs (must have a price row in ai_cost_table).
+  AI_DEFAULT_TEXT_MODEL: z.string().optional(),
+  // 'fake' switches on sample trend collectors (never in production).
+  TREND_COLLECTORS: z.string().optional(),
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   // Needed from P04.
