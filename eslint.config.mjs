@@ -5,7 +5,7 @@ const AI_SDKS = ["openai", "openai/*", "@google/*", "@google-cloud/*", "@anthrop
 const SERVICE_ROLE = {
   selector: "MemberExpression[property.name='SUPABASE_SERVICE_ROLE_KEY']",
   message:
-    "The service-role key may only be read in server-only modules (apps/web/src/lib/server-only, apps/worker, packages/shared/src/env.ts).",
+    "The service-role key may only be read in server-only modules (apps/web/src/lib/server-only, apps/worker, packages/shared/src/env.ts, packages/db/scripts).",
 };
 
 const ORG_FROM_REQUEST = [
@@ -47,6 +47,8 @@ export default tseslint.config(
       "apps/worker/**",
       "packages/shared/src/env.ts",
       "packages/db/tests/**",
+      // Local-only developer tools (the seed refuses to run against anything but 127.0.0.1)
+      "packages/db/scripts/**",
     ],
     rules: { "no-restricted-syntax": "off" },
   },

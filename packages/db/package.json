@@ -7,9 +7,10 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "node scripts/test-isolation.mjs && node scripts/test-credit-concurrency.mjs",
+    "test": "node scripts/test-isolation.mjs && node scripts/test-credit-concurrency.mjs && node scripts/test-claim-concurrency.mjs",
     "db:start": "supabase start --workdir .",
-    "db:reset": "supabase db reset --workdir ."
+    "db:reset": "supabase db reset --workdir .",
+    "seed:dev": "node --env-file-if-exists=../../apps/web/.env.development.local --env-file-if-exists=../../apps/worker/.env.local scripts/seed-dev.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",

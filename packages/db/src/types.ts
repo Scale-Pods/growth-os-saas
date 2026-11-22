@@ -250,6 +250,72 @@ export type MediaAsset = {
   created_at: string;
 };
 
+export type SocialPlatform = "instagram" | "facebook" | "linkedin" | "linkedin_page" | "youtube" | "x" | "tiktok" | "threads" | "pinterest";
+export type SocialAccountStatus = "active" | "needs_reconnect" | "disconnected";
+export type SocialAccount = {
+  id: string;
+  org_id: string;
+  brand_id: string;
+  provider: string;
+  provider_account_id: string;
+  platform: SocialPlatform;
+  display_name: string;
+  avatar_url: string | null;
+  status: SocialAccountStatus;
+  last_checked_at: string | null;
+  connected_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PostStatus = "draft" | "scheduled" | "publishing" | "published" | "failed" | "canceled";
+export type ScheduledPost = {
+  id: string;
+  org_id: string;
+  brand_id: string;
+  social_account_id: string;
+  caption: string;
+  media: Json[];
+  platform_options: Record<string, Json | undefined>;
+  status: PostStatus;
+  scheduled_for: string | null;
+  locked_at: string | null;
+  attempts: number;
+  provider_post_id: string | null;
+  post_url: string | null;
+  published_at: string | null;
+  last_error_code: string | null;
+  last_error_message: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PublishAttempt = {
+  id: string;
+  org_id: string;
+  post_id: string;
+  attempt_no: number;
+  started_at: string;
+  finished_at: string | null;
+  outcome: "success" | "retryable_error" | "failed";
+  error_code: string | null;
+  error_message: string | null;
+  provider_response: Json | null;
+  created_at: string;
+};
+
+export type PostEdit = {
+  id: string;
+  org_id: string;
+  post_id: string;
+  edited_by: string | null;
+  old_caption: string;
+  new_caption: string;
+  status: "applied" | "failed";
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -667,6 +733,66 @@ export type Database = {
         Update: Record<string, never>;
         Relationships: [];
       };
+      social_accounts: {
+        Row: SocialAccount;
+        Insert: Omit<SocialAccount, "id" | "created_at" | "updated_at" | "avatar_url" | "status" | "last_checked_at" | "connected_by"> & {
+          id?: string;
+          avatar_url?: string | null;
+          status?: SocialAccountStatus;
+          last_checked_at?: string | null;
+          connected_by?: string | null;
+        };
+        Update: Partial<SocialAccount>;
+        Relationships: [];
+      };
+      scheduled_posts: {
+        Row: ScheduledPost;
+        Insert: {
+          id?: string;
+          org_id: string;
+          brand_id: string;
+          social_account_id: string;
+          caption?: string;
+          media?: Json[];
+          platform_options?: Record<string, Json | undefined>;
+          status?: "draft" | "scheduled";
+          scheduled_for?: string | null;
+          created_by?: string | null;
+        };
+        Update: {
+          caption?: string;
+          media?: Json[];
+          platform_options?: Record<string, Json | undefined>;
+          status?: "draft" | "scheduled" | "canceled";
+          scheduled_for?: string | null;
+        };
+        Relationships: [];
+      };
+      publish_attempts: {
+        Row: PublishAttempt;
+        Insert: Omit<PublishAttempt, "id" | "created_at" | "started_at" | "finished_at" | "error_code" | "error_message" | "provider_response"> & {
+          id?: string;
+          started_at?: string;
+          finished_at?: string | null;
+          error_code?: string | null;
+          error_message?: string | null;
+          provider_response?: Json | null;
+        };
+        Update: Partial<PublishAttempt>;
+        Relationships: [];
+      };
+      post_edits: {
+        Row: PostEdit;
+        Insert: Omit<PostEdit, "id" | "created_at" | "status" | "edited_by"> & { id?: string; status?: "applied" | "failed"; edited_by?: string | null };
+        Update: Partial<PostEdit>;
+        Relationships: [];
+      };
+      social_connect_states: {
+        Row: { id: string; org_id: string; brand_id: string; user_id: string; state_hash: string; expires_at: string; used_at: string | null; created_at: string };
+        Insert: { org_id: string; brand_id: string; user_id: string; state_hash: string; expires_at: string };
+        Update: { used_at?: string | null };
+        Relationships: [];
+      };
     };
     Views: {
       credit_balance: {
@@ -675,6 +801,9 @@ export type Database = {
       };
     };
     Functions: {
+      claim_due_posts: { Args: { p_limit?: number }; Returns: { id: string; org_id: string; brand_id: string }[] };
+      rescue_stuck_posts: { Args: { p_minutes?: number }; Returns: number };
+      consume_connect_state: { Args: { p_hash: string }; Returns: { org_id: string; brand_id: string; user_id: string }[] };
       credits_reserve: {
         Args: { p_org: string; p_user: string | null; p_job: string; p_amount: number; p_ref?: string };
         Returns: string;

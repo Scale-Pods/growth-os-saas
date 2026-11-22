@@ -206,6 +206,31 @@ begin
 end;
 $$;
 
+-- P05 fixtures
+do $$
+declare
+  v_org_a uuid := isolation_test.id('org_a'); v_org_b uuid := isolation_test.id('org_b');
+  v_brand_a uuid := isolation_test.id('brand_a'); v_brand_b uuid := isolation_test.id('brand_b');
+  v_acct_a uuid; v_acct_b uuid; v_post_a uuid; v_post_b uuid;
+begin
+  insert into public.social_accounts (org_id, brand_id, provider, provider_account_id, platform, display_name, connected_by)
+    values (v_org_a, v_brand_a, 'fake', 'acct-a-1', 'instagram', 'Org A IG', isolation_test.id('a_owner')) returning id into v_acct_a;
+  insert into public.social_accounts (org_id, brand_id, provider, provider_account_id, platform, display_name, connected_by)
+    values (v_org_b, v_brand_b, 'fake', 'acct-b-1', 'instagram', 'Org B IG', isolation_test.id('b_owner')) returning id into v_acct_b;
+  insert into public.scheduled_posts (org_id, brand_id, social_account_id, caption, status, created_by)
+    values (v_org_a, v_brand_a, v_acct_a, 'Org A secret caption', 'draft', isolation_test.id('a_owner')) returning id into v_post_a;
+  insert into public.scheduled_posts (org_id, brand_id, social_account_id, caption, status, created_by)
+    values (v_org_b, v_brand_b, v_acct_b, 'Org B secret caption', 'draft', isolation_test.id('b_owner')) returning id into v_post_b;
+  insert into public.publish_attempts (org_id, post_id, attempt_no, outcome) values (v_org_a, v_post_a, 1, 'failed'), (v_org_b, v_post_b, 1, 'failed');
+  insert into public.post_edits (org_id, post_id, edited_by, old_caption, new_caption) values
+    (v_org_a, v_post_a, isolation_test.id('a_owner'), 'old a', 'new a'), (v_org_b, v_post_b, isolation_test.id('b_owner'), 'old b', 'new b');
+  insert into public.social_connect_states (org_id, brand_id, user_id, state_hash, expires_at) values
+    (v_org_a, v_brand_a, isolation_test.id('a_owner'), repeat('a', 64), now() + interval '10 minutes'),
+    (v_org_b, v_brand_b, isolation_test.id('b_owner'), repeat('b', 64), now() + interval '10 minutes');
+  insert into isolation_test.ids values ('acct_a', v_acct_a), ('post_a', v_post_a);
+end;
+$$;
+
 -- ==============================================================================
 -- A. CATALOGUE CHECKS
 -- ==============================================================================
@@ -779,6 +804,160 @@ begin
   perform isolation_test.record('webhooks', 'webhook_receipts', 'b_owner', 'customers cannot read receipts', v_n <= 0, 'rows=' || v_n);
   v_n := isolation_test.count_as('b_owner', 'select count(*) from public.ai_cost_table');
   perform isolation_test.record('webhooks', 'ai_cost_table', 'b_owner', 'customers cannot read the cost table', v_n <= 0, 'rows=' || v_n);
+end;
+$$;
+
+
+-- C9. Social accounts, scheduled posts and the publishing state machine (P05) ----------
+do $$
+declare
+  v_a uuid := isolation_test.id('org_a');
+  v_b uuid := isolation_test.id('org_b');
+  v_brand uuid := isolation_test.id('brand_a');
+  v_acct uuid := isolation_test.id('acct_a');
+  v_owner uuid := isolation_test.id('a_owner');
+  res record; v_n int; v_id uuid; v_id2 uuid; v_id3 uuid; v_status text; v_msg text; v_pid text; v_state text; v_attempts int; i int;
+begin
+  -- Channel plan limit (trial = 15). The fixture already holds 1 active account.
+  for i in 2..15 loop
+    insert into public.social_accounts (org_id, brand_id, provider, provider_account_id, platform, display_name)
+      values (v_a, v_brand, 'fake', 'limit-' || i, 'facebook', 'L' || i);
+  end loop;
+  select * into res from isolation_test.try('postgres', format(
+    'insert into public.social_accounts (org_id, brand_id, provider, provider_account_id, platform, display_name) values (%L, %L, ''fake'', ''limit-16'', ''facebook'', ''L16'')', v_a, v_brand));
+  perform isolation_test.record('social', 'social_accounts', 'postgres', 'channel plan limit refuses the 16th account',
+    res.msg like '%Plan limit%', coalesce(res.msg, 'ACCEPTED'));
+  delete from public.social_accounts where org_id = v_a and provider_account_id = 'limit-15';
+  insert into public.social_accounts (org_id, brand_id, provider, provider_account_id, platform, display_name, status)
+    values (v_a, v_brand, 'fake', 'limit-15b', 'facebook', 'L15b', 'active');
+  select count(*) into v_n from public.social_accounts where org_id = v_a;
+  perform isolation_test.record('social', 'social_accounts', 'postgres', 'freeing a slot allows a new account', v_n = 15, 'count=' || v_n);
+  -- disconnected accounts do not count toward the limit
+  update public.social_accounts set status = 'disconnected' where org_id = v_a and provider_account_id = 'limit-14';
+  insert into public.social_accounts (org_id, brand_id, provider, provider_account_id, platform, display_name)
+    values (v_a, v_brand, 'fake', 'after-disconnect', 'facebook', 'AD');
+  perform isolation_test.record('social', 'social_accounts', 'postgres', 'disconnected accounts do not use a slot', true);
+
+  select * into res from isolation_test.try('postgres', format(
+    'insert into public.social_accounts (org_id, brand_id, provider, provider_account_id, platform, display_name, status) values (%L, %L, ''fake'', ''acct-a-1'', ''instagram'', ''dup'', ''disconnected'')', v_a, v_brand));
+  perform isolation_test.record('social', 'social_accounts', 'postgres', 'same provider account cannot be added twice', res.state = '23505', coalesce(res.msg, 'ACCEPTED'));
+
+  -- Only the server connects accounts: no signed-in user can insert one
+  select * into res from isolation_test.try('a_admin', format(
+    'insert into public.social_accounts (org_id, brand_id, provider, provider_account_id, platform, display_name) values (%L, %L, ''fake'', ''hack'', ''instagram'', ''x'')', v_a, v_brand));
+  perform isolation_test.record('social', 'social_accounts', 'a_admin', 'cannot insert accounts from the browser', res.state = '42501', coalesce(res.msg, 'ACCEPTED'));
+
+  -- Post creation needs Edit access to publishing
+  select * into res from isolation_test.try('a_admin', format(
+    'insert into public.scheduled_posts (org_id, brand_id, social_account_id, caption, status, created_by) values (%L, %L, %L, ''hello'', ''draft'', %L)', v_a, v_brand, v_acct, isolation_test.id('a_admin')));
+  perform isolation_test.record('posts', 'scheduled_posts', 'a_admin', 'editor can create a draft', res.state is null, coalesce(res.msg, ''));
+  select * into res from isolation_test.try('a_viewer', format(
+    'insert into public.scheduled_posts (org_id, brand_id, social_account_id, caption, status, created_by) values (%L, %L, %L, ''hello'', ''draft'', %L)', v_a, v_brand, v_acct, isolation_test.id('a_viewer')));
+  perform isolation_test.record('posts', 'scheduled_posts', 'a_viewer', 'viewer cannot create a post', res.state = '42501', coalesce(res.msg, 'ACCEPTED'));
+
+  -- A draft belongs to the account's own workspace and brand
+  select * into res from isolation_test.try('postgres', format(
+    'insert into public.scheduled_posts (org_id, brand_id, social_account_id, caption, status) values (%L, %L, (select id from public.social_accounts where org_id = %L limit 1), ''cross'', ''draft'')', v_b, isolation_test.id('brand_b'), v_a));
+  perform isolation_test.record('posts', 'scheduled_posts', 'postgres', 'post cannot use another workspace''s account', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+
+  select id into v_id from public.scheduled_posts where org_id = v_a and caption = 'hello' limit 1;
+
+  -- Signed-in users cannot jump to publishing/published or touch provider fields
+  select * into res from isolation_test.try('a_admin', format('update public.scheduled_posts set status = ''published'' where id = %L', v_id));
+  perform isolation_test.record('posts', 'scheduled_posts', 'a_admin', 'browser cannot mark a post published', res.state is not null, coalesce(res.msg, 'ACCEPTED rows=' || res.rows_affected));
+  select * into res from isolation_test.try('a_admin', format('update public.scheduled_posts set provider_post_id = ''forged'' where id = %L', v_id));
+  perform isolation_test.record('posts', 'scheduled_posts', 'a_admin', 'browser cannot write the provider post id', res.state is not null, coalesce(res.msg, 'ACCEPTED rows=' || res.rows_affected));
+
+  -- Scheduling rules: at least ~5 minutes ahead
+  select * into res from isolation_test.try('a_admin', format('update public.scheduled_posts set status = ''scheduled'', scheduled_for = now() - interval ''1 hour'' where id = %L', v_id));
+  perform isolation_test.record('posts', 'scheduled_posts', 'a_admin', 'cannot schedule in the past', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('a_admin', format('update public.scheduled_posts set status = ''scheduled'', scheduled_for = now() + interval ''2 minutes'' where id = %L', v_id));
+  perform isolation_test.record('posts', 'scheduled_posts', 'a_admin', 'cannot schedule less than 5 minutes ahead', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('a_admin', format('update public.scheduled_posts set status = ''scheduled'' where id = %L', v_id));
+  perform isolation_test.record('posts', 'scheduled_posts', 'a_admin', 'scheduled needs a time', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('a_admin', format('update public.scheduled_posts set status = ''scheduled'', scheduled_for = now() + interval ''1 hour'' where id = %L', v_id));
+  perform isolation_test.record('posts', 'scheduled_posts', 'a_admin', 'can schedule an hour ahead', res.state is null and res.rows_affected = 1, coalesce(res.msg, 'rows=' || res.rows_affected));
+  select * into res from isolation_test.try('a_admin', format('update public.scheduled_posts set status = ''canceled'' where id = %L', v_id));
+  perform isolation_test.record('posts', 'scheduled_posts', 'a_admin', 'can cancel a scheduled post', res.state is null and res.rows_affected = 1, coalesce(res.msg, 'rows=' || res.rows_affected));
+
+  -- Success is only recorded with a provider post id (rule: flags are written after confirmation)
+  select * into res from isolation_test.try('postgres', format('update public.scheduled_posts set status = ''published'' where id = %L', v_id));
+  perform isolation_test.record('posts', 'scheduled_posts', 'postgres', 'published requires a provider post id', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+
+  -- Claiming due posts: atomic, no duplicates, only due ones
+  insert into public.scheduled_posts (org_id, brand_id, social_account_id, caption, status, scheduled_for)
+    select v_a, v_brand, v_acct, 'due ' || g, 'scheduled', now() - interval '1 minute' from generate_series(1, 3) g;
+  insert into public.scheduled_posts (org_id, brand_id, social_account_id, caption, status, scheduled_for)
+    values (v_a, v_brand, v_acct, 'future one', 'scheduled', now() + interval '2 hours');
+  select count(*) into v_n from public.claim_due_posts(2);
+  perform isolation_test.record('engine', 'claim_due_posts', 'postgres', 'claims at most the requested number', v_n = 2, 'claimed=' || v_n);
+  select count(*) into v_n from public.claim_due_posts(10);
+  perform isolation_test.record('engine', 'claim_due_posts', 'postgres', 'second call gets only the rest (no duplicates)', v_n = 1, 'claimed=' || v_n);
+  select count(*) into v_n from public.claim_due_posts(10);
+  perform isolation_test.record('engine', 'claim_due_posts', 'postgres', 'nothing left to claim', v_n = 0, 'claimed=' || v_n);
+  select count(*) into v_n from public.scheduled_posts where org_id = v_a and caption like 'due %' and status = 'publishing' and attempts = 1 and locked_at is not null;
+  perform isolation_test.record('engine', 'scheduled_posts', 'postgres', 'claimed rows are publishing, locked, attempt 1', v_n = 3, 'rows=' || v_n);
+  select status into v_status from public.scheduled_posts where org_id = v_a and caption = 'future one';
+  perform isolation_test.record('engine', 'scheduled_posts', 'postgres', 'future posts are not claimed', v_status = 'scheduled', 'status=' || v_status);
+
+  -- Rescue: stuck publishing rows go back to scheduled (up to 3 tries), then fail; a post already sent is never resent
+  insert into public.scheduled_posts (org_id, brand_id, social_account_id, caption, status, scheduled_for, locked_at, attempts)
+    values (v_a, v_brand, v_acct, 'stuck-1', 'publishing', now() - interval '1 hour', now() - interval '20 minutes', 1) returning id into v_id;
+  insert into public.scheduled_posts (org_id, brand_id, social_account_id, caption, status, scheduled_for, locked_at, attempts)
+    values (v_a, v_brand, v_acct, 'stuck-3', 'publishing', now() - interval '1 hour', now() - interval '20 minutes', 3) returning id into v_id2;
+  insert into public.scheduled_posts (org_id, brand_id, social_account_id, caption, status, scheduled_for, locked_at, attempts, provider_post_id)
+    values (v_a, v_brand, v_acct, 'stuck-sent', 'publishing', now() - interval '1 hour', now() - interval '20 minutes', 1, 'prov-123') returning id into v_id3;
+  insert into public.scheduled_posts (org_id, brand_id, social_account_id, caption, status, scheduled_for, locked_at, attempts)
+    values (v_a, v_brand, v_acct, 'fresh-publishing', 'publishing', now(), now(), 1);
+  select public.rescue_stuck_posts(10) into v_n;
+  perform isolation_test.record('engine', 'rescue_stuck_posts', 'postgres', 'reports the three stuck rows', v_n = 3, 'rescued=' || v_n);
+  select status, attempts into v_status, v_attempts from public.scheduled_posts where id = v_id;
+  perform isolation_test.record('engine', 'scheduled_posts', 'postgres', 'stuck row with tries left returns to scheduled', v_status = 'scheduled', 'status=' || v_status);
+  select status, last_error_message into v_status, v_msg from public.scheduled_posts where id = v_id2;
+  perform isolation_test.record('engine', 'scheduled_posts', 'postgres', 'stuck row out of tries fails with a reason', v_status = 'failed' and length(coalesce(v_msg, '')) > 10, 'status=' || v_status || ' msg=' || coalesce(v_msg, '-'));
+  select status into v_status from public.scheduled_posts where id = v_id3;
+  perform isolation_test.record('engine', 'scheduled_posts', 'postgres', 'already-sent post is marked published, never resent', v_status = 'published', 'status=' || v_status);
+  select status into v_status from public.scheduled_posts where org_id = v_a and caption = 'fresh-publishing';
+  perform isolation_test.record('engine', 'scheduled_posts', 'postgres', 'recent publishing row is left alone', v_status = 'publishing', 'status=' || v_status);
+  select public.rescue_stuck_posts(10) into v_n;
+  perform isolation_test.record('engine', 'rescue_stuck_posts', 'postgres', 'running twice rescues nothing more', v_n = 0, 'rescued=' || v_n);
+
+  -- Attempts are numbered once per post
+  select id into v_id from public.scheduled_posts where org_id = v_a and caption = 'future one';
+  insert into public.publish_attempts (org_id, post_id, attempt_no, outcome) values (v_a, v_id, 1, 'success');
+  select * into res from isolation_test.try('postgres', format('insert into public.publish_attempts (org_id, post_id, attempt_no, outcome) values (%L, %L, 1, ''failed'')', v_a, v_id));
+  perform isolation_test.record('engine', 'publish_attempts', 'postgres', 'attempt number is unique per post', res.state = '23505', coalesce(res.msg, 'ACCEPTED'));
+
+  -- Connect state: signed in, single use, expires
+  select * into res from isolation_test.try('postgres', format('select count(*) from public.consume_connect_state(%L)', repeat('a', 64)));
+  select count(*) into v_n from public.consume_connect_state(repeat('c', 64));
+  perform isolation_test.record('social', 'consume_connect_state', 'postgres', 'unknown state returns nothing', v_n = 0);
+  insert into public.social_connect_states (org_id, brand_id, user_id, state_hash, expires_at)
+    values (v_a, v_brand, v_owner, repeat('d', 64), now() + interval '10 minutes');
+  select count(*) into v_n from public.consume_connect_state(repeat('d', 64));
+  perform isolation_test.record('social', 'consume_connect_state', 'postgres', 'valid state is accepted once', v_n = 1, 'rows=' || v_n);
+  select count(*) into v_n from public.consume_connect_state(repeat('d', 64));
+  perform isolation_test.record('social', 'consume_connect_state', 'postgres', 'state cannot be reused', v_n = 0, 'rows=' || v_n);
+  insert into public.social_connect_states (org_id, brand_id, user_id, state_hash, expires_at)
+    values (v_a, v_brand, v_owner, repeat('e', 64), now() - interval '1 minute');
+  select count(*) into v_n from public.consume_connect_state(repeat('e', 64));
+  perform isolation_test.record('social', 'consume_connect_state', 'postgres', 'expired state is refused', v_n = 0, 'rows=' || v_n);
+
+  -- Server-only functions
+  perform isolation_test.record('engine', 'claim_due_posts', 'authenticated', 'cannot execute',
+    not has_function_privilege('authenticated', 'public.claim_due_posts(int)', 'execute'));
+  perform isolation_test.record('engine', 'rescue_stuck_posts', 'authenticated', 'cannot execute',
+    not has_function_privilege('authenticated', 'public.rescue_stuck_posts(int)', 'execute'));
+  perform isolation_test.record('social', 'consume_connect_state', 'authenticated', 'cannot execute',
+    not has_function_privilege('authenticated', 'public.consume_connect_state(text)', 'execute'));
+  perform isolation_test.record('engine', 'claim_due_posts', 'service_role', 'can execute',
+    has_function_privilege('service_role', 'public.claim_due_posts(int)', 'execute'));
+
+  -- A stranger cannot read org A's posts or accounts (matrix covers every command; spot check the secret caption)
+  v_n := isolation_test.count_as('b_owner', 'select count(*) from public.scheduled_posts where caption = ''Org A secret caption''');
+  perform isolation_test.record('posts', 'scheduled_posts', 'b_owner', 'cannot read org A captions', v_n = 0, 'rows=' || v_n);
+  v_n := isolation_test.count_as('a_viewer', 'select count(*) from public.scheduled_posts where caption = ''Org A secret caption''');
+  perform isolation_test.record('posts', 'scheduled_posts', 'a_viewer', 'member can read org captions', v_n = 1, 'rows=' || v_n);
 end;
 $$;
 
