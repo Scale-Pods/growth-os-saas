@@ -190,6 +190,19 @@ begin
   insert into public.invitations (org_id, email, role, token_hash, invited_by) values
     (v_org_a, 'pending@isolation.test', 'viewer', repeat('1', 64), isolation_test.id('a_owner')),
     (v_org_b, 'pending@isolation.test', 'viewer', repeat('2', 64), isolation_test.id('b_owner'));
+
+  -- P04 fixtures
+  insert into public.credit_ledger (org_id, kind, amount, ref) values
+    (v_org_a, 'grant', 100, 'fixture'), (v_org_b, 'grant', 100, 'fixture');
+  insert into public.jobs (org_id, brand_id, kind, status, created_by) values
+    (v_org_a, v_brand_a, 'dummy', 'done', isolation_test.id('a_owner')),
+    (v_org_b, v_brand_b, 'dummy', 'done', isolation_test.id('b_owner'));
+  insert into public.ai_usage (org_id, user_id, model, units, cost_usd, credits) values
+    (v_org_a, isolation_test.id('a_owner'), 'fake-model', 10, 0.01, 1),
+    (v_org_b, isolation_test.id('b_owner'), 'fake-model', 10, 0.01, 1);
+  insert into public.media_assets (org_id, brand_id, path, kind, content_type, size_bytes, created_by) values
+    (v_org_a, v_brand_a, 'org/a/brand/a/logo/fixture.png', 'logo', 'image/png', 1000, isolation_test.id('a_owner')),
+    (v_org_b, v_brand_b, 'org/b/brand/b/logo/fixture.png', 'logo', 'image/png', 1000, isolation_test.id('b_owner'));
 end;
 $$;
 
@@ -201,7 +214,7 @@ declare
   r record;
   v_n int;
   -- tables without org_id on purpose (documented)
-  v_global text[] := array['profiles','plan_limits','organizations'];
+  v_global text[] := array['profiles','plan_limits','organizations','ai_cost_table','webhook_receipts'];
   -- org_id nullable on purpose (audit trail survives org deletion)
   v_nullable_ok text[] := array['audit_log'];
 begin
@@ -608,6 +621,164 @@ begin
   on conflict do nothing;
   update public.invitations set accepted_at = null where token_hash = repeat('9', 64);
   update auth.users set email_confirmed_at = now() where id = isolation_test.id('d_user');
+end;
+$$;
+
+-- C8. Credit ledger and jobs (P04) ---------------------------------------------------
+do $$
+declare
+  v_a uuid := isolation_test.id('org_a');
+  v_b uuid := isolation_test.id('org_b');
+  v_user uuid := isolation_test.id('a_owner');
+  v_viewer uuid := isolation_test.id('a_viewer');
+  v_start int; v_bal int; v_bal_b int; v_job uuid; v_job2 uuid; v_id1 uuid; v_id2 uuid;
+  res record; v_status text; v_msg text; v_n int;
+begin
+  select coalesce(sum(amount),0) into v_start from public.credit_ledger where org_id = v_a;
+  perform isolation_test.record('credits', 'fixture', '-', 'starting balance is the 100 grant', v_start = 100, 'balance=' || v_start);
+
+  -- grant is idempotent per ref
+  perform public.credits_grant(v_a, 50, 'topup-1', null);
+  perform public.credits_grant(v_a, 50, 'topup-1', null);
+  select coalesce(sum(amount),0) into v_bal from public.credit_ledger where org_id = v_a;
+  perform isolation_test.record('credits', 'credits_grant', 'postgres', 'same ref grants only once', v_bal = 150, 'balance=' || v_bal);
+
+  -- reserve takes credits at acceptance
+  v_job := gen_random_uuid();
+  perform public.credits_reserve(v_a, v_user, v_job, 30, 'reserve');
+  select coalesce(sum(amount),0) into v_bal from public.credit_ledger where org_id = v_a;
+  perform isolation_test.record('credits', 'credits_reserve', 'postgres', 'reserve deducts', v_bal = 120, 'balance=' || v_bal);
+
+  -- reserving the same job twice must not double charge
+  v_id1 := public.credits_reserve(v_a, v_user, v_job, 30, 'reserve');
+  select coalesce(sum(amount),0) into v_bal from public.credit_ledger where org_id = v_a;
+  perform isolation_test.record('credits', 'credits_reserve', 'postgres', 'same job reserved twice charges once', v_bal = 120, 'balance=' || v_bal);
+
+  -- settle at a lower real cost returns the difference, and is idempotent
+  perform public.credits_settle(v_a, v_job, 10);
+  perform public.credits_settle(v_a, v_job, 10);
+  select coalesce(sum(amount),0) into v_bal from public.credit_ledger where org_id = v_a;
+  perform isolation_test.record('credits', 'credits_settle', 'postgres', 'settle at actual cost, once', v_bal = 140, 'balance=' || v_bal);
+
+  -- settle cannot charge more than was reserved
+  v_job2 := gen_random_uuid();
+  perform public.credits_reserve(v_a, v_user, v_job2, 20, 'reserve');
+  perform public.credits_settle(v_a, v_job2, 500);
+  select coalesce(sum(amount),0) into v_bal from public.credit_ledger where org_id = v_a;
+  perform isolation_test.record('credits', 'credits_settle', 'postgres', 'settle never exceeds the reservation', v_bal = 120, 'balance=' || v_bal);
+
+  -- release gives everything back, once
+  v_job := gen_random_uuid();
+  perform public.credits_reserve(v_a, v_user, v_job, 40, 'reserve');
+  perform public.credits_release(v_a, v_job);
+  perform public.credits_release(v_a, v_job);
+  select coalesce(sum(amount),0) into v_bal from public.credit_ledger where org_id = v_a;
+  perform isolation_test.record('credits', 'credits_release', 'postgres', 'release returns the reservation once', v_bal = 120, 'balance=' || v_bal);
+
+  -- a settled job cannot be released afterwards
+  perform public.credits_release(v_a, v_job2);
+  select coalesce(sum(amount),0) into v_bal from public.credit_ledger where org_id = v_a;
+  perform isolation_test.record('credits', 'credits_release', 'postgres', 'release after settle is a no-op', v_bal = 120, 'balance=' || v_bal);
+
+  -- insufficient credits are refused before anything is written
+  select * into res from isolation_test.try('postgres',
+    format('select public.credits_reserve(%L, %L, %L, 100000, ''reserve'')', v_a, v_user, gen_random_uuid()));
+  perform isolation_test.record('credits', 'credits_reserve', 'postgres', 'refuses more than the balance',
+    res.msg like '%INSUFFICIENT_CREDITS%', coalesce(res.msg, 'NOT REFUSED'));
+  select coalesce(sum(amount),0) into v_bal from public.credit_ledger where org_id = v_a;
+  perform isolation_test.record('credits', 'credits_reserve', 'postgres', 'refusal leaves balance unchanged', v_bal = 120, 'balance=' || v_bal);
+
+  -- zero or negative amounts are refused
+  select * into res from isolation_test.try('postgres',
+    format('select public.credits_reserve(%L, %L, %L, 0, ''reserve'')', v_a, v_user, gen_random_uuid()));
+  perform isolation_test.record('credits', 'credits_reserve', 'postgres', 'refuses zero amount', res.state is not null, coalesce(res.msg, 'NOT REFUSED'));
+  select * into res from isolation_test.try('postgres',
+    format('select public.credits_grant(%L, -5, ''neg'', null)', v_a));
+  perform isolation_test.record('credits', 'credits_grant', 'postgres', 'refuses negative grant', res.state is not null, coalesce(res.msg, 'NOT REFUSED'));
+
+  -- per-member monthly cap
+  update public.memberships set monthly_credit_cap = 20 where org_id = v_a and user_id = v_viewer;
+  select * into res from isolation_test.try('postgres',
+    format('select public.credits_reserve(%L, %L, %L, 25, ''reserve'')', v_a, v_viewer, gen_random_uuid()));
+  perform isolation_test.record('credits', 'credits_reserve', 'postgres', 'member cap blocks a reservation above the cap',
+    res.msg like '%MEMBER_CAP_REACHED%', coalesce(res.msg, 'NOT REFUSED'));
+  select * into res from isolation_test.try('postgres',
+    format('select public.credits_reserve(%L, %L, %L, 15, ''reserve'')', v_a, v_viewer, gen_random_uuid()));
+  perform isolation_test.record('credits', 'credits_reserve', 'postgres', 'member cap allows a reservation within the cap', res.state is null, coalesce(res.msg, ''));
+  select * into res from isolation_test.try('postgres',
+    format('select public.credits_reserve(%L, %L, %L, 10, ''reserve'')', v_a, v_viewer, gen_random_uuid()));
+  perform isolation_test.record('credits', 'credits_reserve', 'postgres', 'member cap counts earlier spend this month',
+    res.msg like '%MEMBER_CAP_REACHED%', coalesce(res.msg, 'NOT REFUSED'));
+
+  -- org B is untouched by all of the above
+  select coalesce(sum(amount),0) into v_bal_b from public.credit_ledger where org_id = v_b;
+  perform isolation_test.record('credits', 'credit_ledger', 'postgres', 'other org balance unchanged', v_bal_b = 100, 'balance=' || v_bal_b);
+
+  -- nobody but the service role can call the ledger functions
+  perform isolation_test.record('credits', 'credits_reserve', 'authenticated', 'cannot execute',
+    not has_function_privilege('authenticated', 'public.credits_reserve(uuid,uuid,uuid,int,text)', 'execute'));
+  perform isolation_test.record('credits', 'credits_settle', 'authenticated', 'cannot execute',
+    not has_function_privilege('authenticated', 'public.credits_settle(uuid,uuid,int)', 'execute'));
+  perform isolation_test.record('credits', 'credits_release', 'authenticated', 'cannot execute',
+    not has_function_privilege('authenticated', 'public.credits_release(uuid,uuid)', 'execute'));
+  perform isolation_test.record('credits', 'credits_grant', 'authenticated', 'cannot execute',
+    not has_function_privilege('authenticated', 'public.credits_grant(uuid,int,text,uuid)', 'execute'));
+  perform isolation_test.record('credits', 'rescue_stuck_jobs', 'authenticated', 'cannot execute',
+    not has_function_privilege('authenticated', 'public.rescue_stuck_jobs(int)', 'execute'));
+  perform isolation_test.record('credits', 'credits_reserve', 'service_role', 'can execute',
+    has_function_privilege('service_role', 'public.credits_reserve(uuid,uuid,uuid,int,text)', 'execute'));
+
+  -- members read their own org balance through the view; strangers read nothing
+  v_n := isolation_test.count_as('a_viewer', format('select coalesce(sum(balance),0)::int from public.credit_balance where org_id = %L', v_a));
+  perform isolation_test.record('credits', 'credit_balance', 'a_viewer', 'member can read own balance', v_n > 0, 'balance=' || v_n);
+  v_n := isolation_test.count_as('b_owner', format('select count(*) from public.credit_balance where org_id = %L', v_a));
+  perform isolation_test.record('credits', 'credit_balance', 'b_owner', 'stranger cannot read balance', v_n = 0, 'rows=' || v_n);
+  v_n := isolation_test.count_as('anon', 'select count(*) from public.credit_balance');
+  perform isolation_test.record('credits', 'credit_balance', 'anon', 'anon cannot read balance', v_n <= 0, 'rows=' || v_n);
+
+  -- 20 reservations in a row can never overspend (the parallel version runs in test-credit-concurrency.mjs)
+  select coalesce(sum(amount),0) into v_bal from public.credit_ledger where org_id = v_b;
+  for v_n in 1..20 loop
+    perform isolation_test.try('postgres', format('select public.credits_reserve(%L, %L, %L, 30, ''reserve'')', v_b, isolation_test.id('b_owner'), gen_random_uuid()));
+  end loop;
+  select coalesce(sum(amount),0) into v_bal_b from public.credit_ledger where org_id = v_b;
+  perform isolation_test.record('credits', 'credits_reserve', 'postgres', '20 reservations of 30 against 100 never go negative',
+    v_bal_b >= 0 and v_bal_b = 10, 'balance=' || v_bal_b);
+
+  -- Rescue: a running job with no heartbeat for more than 10 minutes fails and releases its credits
+  v_job := gen_random_uuid();
+  perform public.credits_reserve(v_a, v_user, v_job, 25, 'reserve');
+  insert into public.jobs (id, org_id, kind, status, started_at, heartbeat_at, created_by)
+    values (v_job, v_a, 'dummy', 'running', now() - interval '30 minutes', now() - interval '20 minutes', v_user);
+  v_job2 := gen_random_uuid();
+  insert into public.jobs (id, org_id, kind, status, started_at, heartbeat_at, created_by)
+    values (v_job2, v_a, 'dummy', 'running', now(), now(), v_user);
+  select coalesce(sum(amount),0) into v_bal from public.credit_ledger where org_id = v_a;
+  select public.rescue_stuck_jobs(10) into v_n;
+  perform isolation_test.record('rescue', 'rescue_stuck_jobs', 'postgres', 'reports one rescued job', v_n = 1, 'rescued=' || v_n);
+  select status, error_message into v_status, v_msg from public.jobs where id = v_job;
+  perform isolation_test.record('rescue', 'jobs', 'postgres', 'stuck job is failed with a reason',
+    v_status = 'failed' and v_msg is not null and length(v_msg) > 10, 'status=' || v_status || ' msg=' || coalesce(v_msg, '-'));
+  select status into v_status from public.jobs where id = v_job2;
+  perform isolation_test.record('rescue', 'jobs', 'postgres', 'healthy running job is left alone', v_status = 'running', 'status=' || v_status);
+  perform isolation_test.record('rescue', 'credit_ledger', 'postgres', 'stuck job credits released',
+    (select coalesce(sum(amount),0) from public.credit_ledger where org_id = v_a) = v_bal + 25);
+  select public.rescue_stuck_jobs(10) into v_n;
+  perform isolation_test.record('rescue', 'rescue_stuck_jobs', 'postgres', 'running twice does not double release', v_n = 0, 'rescued=' || v_n);
+
+  -- job status values are constrained
+  select * into res from isolation_test.try('postgres',
+    format('insert into public.jobs (org_id, kind, status) values (%L, ''dummy'', ''weird'')', v_a));
+  perform isolation_test.record('jobs', 'jobs', 'postgres', 'unknown status refused', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+
+  -- a webhook event id can be recorded only once per provider
+  insert into public.webhook_receipts (provider, event_id) values ('testprov', 'evt-1');
+  select * into res from isolation_test.try('postgres', 'insert into public.webhook_receipts (provider, event_id) values (''testprov'', ''evt-1'')');
+  perform isolation_test.record('webhooks', 'webhook_receipts', 'postgres', 'duplicate event id refused', res.state = '23505', coalesce(res.msg, 'ACCEPTED'));
+  v_n := isolation_test.count_as('b_owner', 'select count(*) from public.webhook_receipts');
+  perform isolation_test.record('webhooks', 'webhook_receipts', 'b_owner', 'customers cannot read receipts', v_n <= 0, 'rows=' || v_n);
+  v_n := isolation_test.count_as('b_owner', 'select count(*) from public.ai_cost_table');
+  perform isolation_test.record('webhooks', 'ai_cost_table', 'b_owner', 'customers cannot read the cost table', v_n <= 0, 'rows=' || v_n);
 end;
 $$;
 

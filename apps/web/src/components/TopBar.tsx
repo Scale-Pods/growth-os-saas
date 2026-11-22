@@ -1,7 +1,8 @@
 "use client";
 
-import { Menu, Bell, ShieldCheck, LogOut, Coins } from "lucide-react";
+import { Menu, Bell, ShieldCheck, LogOut } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
+import { CreditsPill } from "./CreditsPill";
 import { logout } from "@/app/auth/actions";
 import type { Organization, Brand, Profile, OrgRole } from "@growth-os/db";
 
@@ -59,11 +60,7 @@ export function TopBar({
 
       {/* Right: Actions, Badges & Profile */}
       <div className="flex items-center gap-2.5 sm:gap-4">
-        {/* Credits Pill */}
-        <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-semibold">
-          <Coins className="w-3.5 h-3.5" />
-          <span>200 Credits</span>
-        </div>
+        <CreditsPill />
 
         {/* Notifications Bell */}
         <button

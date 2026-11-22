@@ -7,7 +7,7 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "node scripts/test-isolation.mjs",
+    "test": "node scripts/test-isolation.mjs && node scripts/test-credit-concurrency.mjs",
     "db:start": "supabase start --workdir .",
     "db:reset": "supabase db reset --workdir ."
   },

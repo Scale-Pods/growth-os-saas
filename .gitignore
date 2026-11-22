@@ -15,3 +15,4 @@ supabase/.temp/
 .claude/settings.local.json
 *.zip
 *.tsbuildinfo
+*.log

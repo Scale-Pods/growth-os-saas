@@ -10,6 +10,8 @@ export const webEnvSchema = z
     NEXT_PUBLIC_SUPABASE_ANON_KEY: z.string().min(1),
     // Required in production; optional locally until a feature needs it.
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
+    // Connection string the web server uses to put jobs on the queue (needed from P04).
+    DATABASE_URL: z.string().min(1).optional(),
     // Optional until the phase that uses them (P04 media, P01 Turnstile).
     NEXT_PUBLIC_MEDIA_DOMAIN: z.string().optional(),
     R2_ACCOUNT_ID: z.string().optional(),

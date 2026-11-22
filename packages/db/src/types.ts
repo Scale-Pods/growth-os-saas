@@ -190,6 +190,65 @@ export type AuditLog = {
   created_at: string;
 };
 
+export type JobStatus = "queued" | "running" | "done" | "failed" | "canceled";
+export type Job = {
+  id: string;
+  org_id: string;
+  brand_id: string | null;
+  kind: string;
+  status: JobStatus;
+  progress: { percent?: number; label?: string } & Record<string, Json | undefined>;
+  input_ref: Json | null;
+  output_ref: Json | null;
+  error_code: string | null;
+  error_message: string | null;
+  cost_credits: number;
+  created_by: string | null;
+  heartbeat_at: string | null;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+};
+
+export type CreditLedgerEntry = {
+  id: string;
+  org_id: string;
+  user_id: string | null;
+  job_id: string | null;
+  kind: "grant" | "reserve" | "adjust" | "release" | "expire";
+  amount: number;
+  ref: string | null;
+  created_at: string;
+};
+
+export type AiUsage = {
+  id: string;
+  org_id: string;
+  user_id: string | null;
+  job_id: string | null;
+  model: string;
+  units: number;
+  cost_usd: number;
+  credits: number;
+  created_at: string;
+};
+
+export type MediaKind = "logo" | "post-image" | "post-video" | "pdf" | "reference-image";
+export type MediaAsset = {
+  id: string;
+  org_id: string;
+  brand_id: string | null;
+  path: string;
+  kind: MediaKind;
+  content_type: string;
+  size_bytes: number;
+  width: number | null;
+  height: number | null;
+  sha256: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -544,9 +603,84 @@ export type Database = {
         };
         Relationships: [];
       };
+      jobs: {
+        Row: Job;
+        Insert: {
+          id?: string;
+          org_id: string;
+          brand_id?: string | null;
+          kind: string;
+          status?: JobStatus;
+          progress?: Job["progress"];
+          input_ref?: Json | null;
+          output_ref?: Json | null;
+          error_code?: string | null;
+          error_message?: string | null;
+          cost_credits?: number;
+          created_by?: string | null;
+          heartbeat_at?: string | null;
+          created_at?: string;
+          started_at?: string | null;
+          finished_at?: string | null;
+        };
+        Update: Partial<Job>;
+        Relationships: [];
+      };
+      credit_ledger: {
+        Row: CreditLedgerEntry;
+        Insert: Omit<CreditLedgerEntry, "id" | "created_at"> & { id?: string; created_at?: string };
+        Update: Partial<CreditLedgerEntry>;
+        Relationships: [];
+      };
+      ai_usage: {
+        Row: AiUsage;
+        Insert: Omit<AiUsage, "id" | "created_at"> & { id?: string; created_at?: string };
+        Update: Partial<AiUsage>;
+        Relationships: [];
+      };
+      media_assets: {
+        Row: MediaAsset;
+        Insert: Omit<MediaAsset, "id" | "created_at" | "brand_id" | "width" | "height" | "sha256" | "created_by"> & {
+          id?: string;
+          created_at?: string;
+          brand_id?: string | null;
+          width?: number | null;
+          height?: number | null;
+          sha256?: string | null;
+          created_by?: string | null;
+        };
+        Update: Partial<MediaAsset>;
+        Relationships: [];
+      };
+      ai_cost_table: {
+        Row: { model: string; provider: string; capability: string; unit: string; usd_per_unit: number; active: boolean; updated_at: string };
+        Insert: { model: string; provider: string; capability: string; unit: string; usd_per_unit: number; active?: boolean };
+        Update: { usd_per_unit?: number; active?: boolean };
+        Relationships: [];
+      };
+      webhook_receipts: {
+        Row: { id: string; provider: string; event_id: string; received_at: string };
+        Insert: { provider: string; event_id: string };
+        Update: Record<string, never>;
+        Relationships: [];
+      };
     };
-    Views: Record<string, never>;
+    Views: {
+      credit_balance: {
+        Row: { org_id: string; balance: number };
+        Relationships: [];
+      };
+    };
     Functions: {
+      credits_reserve: {
+        Args: { p_org: string; p_user: string | null; p_job: string; p_amount: number; p_ref?: string };
+        Returns: string;
+      };
+      credits_settle: { Args: { p_org: string; p_job: string; p_actual: number }; Returns: undefined };
+      credits_release: { Args: { p_org: string; p_job: string }; Returns: undefined };
+      credits_grant: { Args: { p_org: string; p_amount: number; p_ref: string; p_user?: string | null }; Returns: undefined };
+      rescue_stuck_jobs: { Args: { p_minutes?: number }; Returns: number };
+      credits_reconcile: { Args: Record<string, never>; Returns: { org_id: string; balance: number }[] };
       create_organization: {
         Args: {
           p_name: string;

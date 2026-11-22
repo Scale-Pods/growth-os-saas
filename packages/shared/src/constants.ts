@@ -12,6 +12,10 @@ export const QUEUE_NAMES = {
   NOTIFY_SEND: "notify.send",
   BILLING_RECONCILE: "billing.reconcile",
   SOCIAL_TOKEN_CHECK: "social.token_check",
+  SYSTEM_DUMMY: "system.dummy",
+  SYSTEM_RESCUE: "system.rescue",
+  SYSTEM_RECONCILE: "system.reconcile",
+  MEDIA_NORMALIZE: "media.normalize",
 } as const;
 
 export const CONCURRENCY_LIMITS = {
@@ -26,3 +30,12 @@ export const CREDIT_DEFAULTS = {
   TRIAL_DAYS: 14,
 } as const;
 
+
+/** Spend ceilings. Per job, in USD, enforced by the gateway before the provider is called. */
+export const COST_CAPS = {
+  JOB_USD_DEFAULT: 1,
+  JOB_USD_VIDEO: 5,
+} as const;
+
+/** Running jobs with no heartbeat for this long are failed by the rescue job. */
+export const RESCUE_AFTER_MINUTES = 10;
