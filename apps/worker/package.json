@@ -8,16 +8,19 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "tsx tests/runner.test.ts && tsx tests/normalize.test.ts",
+    "test": "tsx tests/runner.test.ts && tsx tests/normalize.test.ts && tsx tests/publish.test.ts && tsx tests/health-check.test.ts",
     "start": "tsx --env-file-if-exists=.env.local src/index.ts",
-    "smoke": "tsx --env-file-if-exists=.env.local scripts/smoke-dummy-jobs.mts"
+    "smoke": "tsx --env-file-if-exists=.env.local scripts/smoke-dummy-jobs.mts",
+    "smoke:publish": "tsx --env-file-if-exists=.env.local scripts/smoke-publish.mts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1175.0",
     "@growth-os/shared": "workspace:*",
     "@supabase/supabase-js": "^2.119.0",
     "pg-boss": "^12.38.2",
-    "sharp": "^0.35.5"
+    "sharp": "^0.35.5",
+    "@growth-os/social": "workspace:*",
+    "@aws-sdk/s3-request-presigner": "^3.1175.0"
   },
   "devDependencies": {
     "@types/node": "^20.17.17",

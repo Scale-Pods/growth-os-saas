@@ -759,13 +759,9 @@ export type Database = {
           scheduled_for?: string | null;
           created_by?: string | null;
         };
-        Update: {
-          caption?: string;
-          media?: Json[];
-          platform_options?: Record<string, Json | undefined>;
-          status?: "draft" | "scheduled" | "canceled";
-          scheduled_for?: string | null;
-        };
+        // Wide on purpose: the service role (server code) also writes locks, attempts and provider fields.
+        // A signed-in user is limited by the database guard trigger, not by this type.
+        Update: Partial<ScheduledPost>;
         Relationships: [];
       };
       publish_attempts: {

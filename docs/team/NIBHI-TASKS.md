@@ -169,10 +169,12 @@ Difficulty: 🟢 easy · 🟡 medium · 🔴 harder. Do them in order. Each says
 
 ### T9 🟡 Channels settings (`/settings/channels`)
 **Do:** A page listing connected channels grouped by brand: avatar, name, platform badge (`PlatformBadge`), status (green Active, orange **Needs reconnect**, grey Disconnected) and "last checked". Under it, a grid of "Connect Instagram / Facebook / LinkedIn / YouTube / X" buttons: all disabled with "Coming soon" for now. A **Reconnect** button on `needs_reconnect` rows and a **Disconnect** button (confirm with `ConfirmDialog`), both stubs. Add a sidebar link under Settings.
+**The Connect buttons are wired by Claude (ready now):** `POST /api/social/connect` returns a link; the provider sends the user back and the server redirects to `/settings/channels?connected=1` or `/settings/channels?error=<reason>`. Your page must read those and show a friendly message at the top: `connected` (success toast "Channel connected"), `expired` ("That connection link expired. Please try again."), `invalid_state` ("That connection link was not valid."), `forbidden` ("Only owners and admins can connect channels."), `mfa` ("Finish two-factor sign-in first."), `plan_limit` ("Your plan's channel limit is reached."), `connect_failed` and `server` ("Something went wrong. Please try again.").
 **You may touch:** `apps/web/src/app/settings/channels/page.tsx`, new `apps/web/src/components/channels/*`, and one line in `Sidebar.tsx`.
 
 ### T10 🔴 Post composer (`/publishing/new`)
 **Do:** A two-column screen. **Left:** pick one or more channels (from `social_accounts`), write the caption with a **live character counter per platform** (Instagram 2,200 · LinkedIn 3,000 · Facebook 63,206 · X 280 · YouTube title 100), add hashtags, add media (stub uploader area), choose **Save draft** or **Schedule**. The scheduler date and time picker must **disable past dates, require at least 5 minutes from now, and show the time zone**. **Right:** a live preview card per selected platform with the right shape (Instagram square, LinkedIn wide, Facebook wide). Over-limit captions turn the counter red and block Schedule. All save actions are stubs that show a toast "Not connected yet".
+**Do not copy the limits.** Import them: `import { PLATFORM_LIMITS, validatePostContent } from "@growth-os/shared"`. `PLATFORM_LIMITS.instagram.captionMax` gives the character limit, and `validatePostContent(platform, caption, mediaKinds)` returns `{ ok: true }` or `{ ok: false, message }`. Show that `message` to the user as is.
 **You may touch:** `apps/web/src/app/publishing/new/page.tsx`, new `apps/web/src/components/composer/*`. Keep the composer a client component driven by props so Claude can wire the real save later.
 **Done when:** every rule above works with the keyboard, in both themes, at 360 px.
 
@@ -200,6 +202,23 @@ Difficulty: 🟢 easy · 🟡 medium · 🔴 harder. Do them in order. Each says
 | **P10** | Billing | Hrishikesh + Claude | Pricing and plan screens (design only for now) |
 
 You can use the typed data shapes straight away: `import type { ScheduledPost, SocialAccount, PublishAttempt, Job } from "@growth-os/db"`.
+
+## Part 4b. What Claude has already built that your screens will call
+
+You do not wire these, but you should know their names, so your stubs match. All are in `apps/web/src/app/publishing/actions.ts` (server actions) and return `{ ok: true, data }` or `{ ok: false, error: { message } }`. Always show `error.message` to the user.
+
+| Action | What it does | Input |
+|---|---|---|
+| `savePostsAction` | Creates a draft or a scheduled post for each selected channel | `brandId`, `accountIds[]`, `caption`, `media[]`, `mode` (`draft` or `schedule`), `scheduledFor` (ISO time) |
+| `updatePostAction` | Edits a post that is not publishing or published | `id`, any of `caption`, `media`, `mode`, `scheduledFor` |
+| `reschedulePostAction` | Moves a scheduled post | `id`, `scheduledFor` |
+| `cancelPostAction` | Cancels a post | `id` |
+| `postNowAction` | Publishes right away (usually within seconds) | `id` |
+| `retryPostAction` | Retries a failed post | `id` |
+
+Rules the server already enforces (so your UI just reflects them): a scheduled time must be at least 5 minutes ahead; a post cannot be edited once it is publishing or published; a channel that "needs reconnect" cannot post; Instagram needs an image or video; X allows 280 characters.
+
+Until real social providers are connected, everything runs on a **fake provider**. In local development you can test failures by typing a marker into the caption: `[fail:AUTH_EXPIRED]`, `[fail:RATE_LIMITED]`, `[fail-once:RATE_LIMITED]` or `[fail:MEDIA_INVALID]`. A post with `[fail:AUTH_EXPIRED]` ends as **Failed** with the reconnect message and flags the channel "Needs reconnect": use it to check your failed and reconnect states.
 
 ## Part 5. If you get stuck
 

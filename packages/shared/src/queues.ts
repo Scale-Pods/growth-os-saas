@@ -8,6 +8,10 @@ import { QUEUE_NAMES } from "./constants";
 export const jobPayloadSchema = z.object({ jobId: z.string().uuid() });
 export type JobPayload = z.infer<typeof jobPayloadSchema>;
 
+/** Publishing queues carry the id of a row in `scheduled_posts`. */
+export const postPayloadSchema = z.object({ postId: z.string().uuid() });
+export type PostPayload = z.infer<typeof postPayloadSchema>;
+
 /** Queues that are driven by a row in the `jobs` table. */
 export const JOB_QUEUES = [
   QUEUE_NAMES.AI_TEXT,

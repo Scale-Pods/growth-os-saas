@@ -12,6 +12,9 @@ export const webEnvSchema = z
     SUPABASE_SERVICE_ROLE_KEY: z.string().min(1).optional(),
     // Connection string the web server uses to put jobs on the queue (needed from P04).
     DATABASE_URL: z.string().min(1).optional(),
+    // Which social provider adapter to use. Must be set explicitly in production.
+    SOCIAL_PROVIDER: z.string().optional(),
+    SOCIAL_WEBHOOK_SECRET: z.string().min(16).optional(),
     // Optional until the phase that uses them (P04 media, P01 Turnstile).
     NEXT_PUBLIC_MEDIA_DOMAIN: z.string().optional(),
     R2_ACCOUNT_ID: z.string().optional(),
@@ -36,6 +39,7 @@ export const webEnvSchema = z
 export const workerEnvSchema = z.object({
   NODE_ENV: nodeEnv,
   DATABASE_URL: z.string().min(1),
+  SOCIAL_PROVIDER: z.string().optional(),
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   // Needed from P04.

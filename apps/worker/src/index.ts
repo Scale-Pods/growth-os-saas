@@ -9,6 +9,7 @@ import {
   createLogger,
   isJobQueue,
   jobPayloadSchema,
+  postPayloadSchema,
   validateWorkerEnv,
   type JobQueueName,
 } from "@growth-os/shared";
@@ -17,6 +18,10 @@ import { supabaseJobStore } from "./store";
 import { dummyHandler } from "./handlers/dummy";
 import { mediaNormalizeHandler } from "./handlers/media-normalize";
 import { r2FromEnv } from "./r2";
+import { getSocialProvider } from "@growth-os/social";
+import { publishPost } from "./publish";
+import { supabaseHealthStore, supabasePublishStore } from "./publish-store";
+import { runHealthCheck } from "./health-check";
 
 const log = createLogger({ service: "worker" });
 
@@ -31,17 +36,29 @@ async function main() {
 
   const db = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
   const store = supabaseJobStore(db);
+  const objects = r2FromEnv(process.env);
   /** Handlers by queue. Later phases add theirs here; a queue without a handler is not consumed. */
   const HANDLERS: Partial<Record<JobQueueName, Handler>> = {
     [QUEUE_NAMES.SYSTEM_DUMMY]: dummyHandler,
-    [QUEUE_NAMES.MEDIA_NORMALIZE]: mediaNormalizeHandler(db, r2FromEnv(process.env)),
+    [QUEUE_NAMES.MEDIA_NORMALIZE]: mediaNormalizeHandler(db, objects),
   };
+
+  // Fails at startup in production if SOCIAL_PROVIDER is not chosen (never falls back to the fake there).
+  const provider = getSocialProvider(process.env);
+  log.info("social provider", { provider: provider.name });
 
   const boss = new PgBoss(env.DATABASE_URL);
   boss.on("error", (e: unknown) => log.error("queue error", { error: e instanceof Error ? e.message : String(e) }));
   await boss.start();
 
-  for (const name of [...JOB_QUEUES, QUEUE_NAMES.SYSTEM_RESCUE, QUEUE_NAMES.SYSTEM_RECONCILE]) {
+  for (const name of [
+    ...JOB_QUEUES,
+    QUEUE_NAMES.SYSTEM_RESCUE,
+    QUEUE_NAMES.SYSTEM_RECONCILE,
+    QUEUE_NAMES.PUBLISH_SCHEDULER,
+    QUEUE_NAMES.PUBLISH_POST,
+    QUEUE_NAMES.SOCIAL_TOKEN_CHECK,
+  ]) {
     await boss.createQueue(name, QUEUE_RETRY);
   }
 
@@ -90,6 +107,10 @@ async function main() {
     const { data, error } = await db.rpc("rescue_stuck_jobs", { p_minutes: RESCUE_AFTER_MINUTES });
     if (error) throw new Error(`rescue failed: ${error.message}`);
     if (typeof data === "number" && data > 0) log.warn("rescued stuck jobs", { count: data });
+    // Posts stuck in `publishing`: back to scheduled (up to 3 tries), then failed. A post already sent is never resent.
+    const posts = await db.rpc("rescue_stuck_posts", { p_minutes: RESCUE_AFTER_MINUTES });
+    if (posts.error) throw new Error(`post rescue failed: ${posts.error.message}`);
+    if (typeof posts.data === "number" && posts.data > 0) log.warn("rescued stuck posts", { count: posts.data });
   });
   await boss.schedule(QUEUE_NAMES.SYSTEM_RESCUE, "* * * * *");
 
@@ -100,6 +121,49 @@ async function main() {
     if (Array.isArray(data) && data.length > 0) log.error("NEGATIVE CREDIT BALANCE FOUND", { orgs: data.length });
   });
   await boss.schedule(QUEUE_NAMES.SYSTEM_RECONCILE, "0 3 * * *");
+
+  // ---- Publishing -------------------------------------------------------------------------------
+  const publishStore = supabasePublishStore(db, objects);
+
+  // Every minute: claim due posts atomically (no two workers can take the same post) and queue each one.
+  await boss.work(QUEUE_NAMES.PUBLISH_SCHEDULER, async () => {
+    const { data, error } = await db.rpc("claim_due_posts", { p_limit: 50 });
+    if (error) throw new Error(`claim failed: ${error.message}`);
+    for (const row of data ?? []) {
+      try {
+        await boss.send(QUEUE_NAMES.PUBLISH_POST, { postId: row.id }, { ...QUEUE_RETRY });
+      } catch (e) {
+        // The row stays `publishing`; the rescue job returns it to the schedule. Never ignored: logged with ids.
+        log.error("could not queue a claimed post", { post_id: row.id, org_id: row.org_id, error: e instanceof Error ? e.message : String(e) });
+      }
+    }
+    if ((data?.length ?? 0) > 0) log.info("claimed due posts", { count: data?.length });
+  });
+  await boss.schedule(QUEUE_NAMES.PUBLISH_SCHEDULER, "* * * * *");
+
+  await boss.work<{ postId?: string }>(QUEUE_NAMES.PUBLISH_POST, { localConcurrency: 5 }, async (jobs) => {
+    for (const j of jobs) {
+      if (shuttingDown) throw new Error("worker is shutting down");
+      const parsed = postPayloadSchema.safeParse(j.data);
+      if (!parsed.success) {
+        log.error("invalid publish payload, dropped", { queue_job_id: j.id });
+        continue;
+      }
+      inFlight++;
+      try {
+        await publishPost({ store: publishStore, provider, now: () => new Date(), log }, parsed.data.postId);
+      } finally {
+        inFlight--;
+      }
+    }
+  });
+
+  // Daily: is each connected account's login still valid?
+  await boss.work(QUEUE_NAMES.SOCIAL_TOKEN_CHECK, async () => {
+    const summary = await runHealthCheck({ store: supabaseHealthStore(db), provider, log });
+    log.info("channel health check done", summary);
+  });
+  await boss.schedule(QUEUE_NAMES.SOCIAL_TOKEN_CHECK, "0 4 * * *");
 
   // Health endpoint for Railway.
   const port = Number(process.env.PORT ?? 8080);

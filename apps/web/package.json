@@ -25,7 +25,8 @@
     "react-dom": "^19.3.1",
     "server-only": "^0.0.1",
     "tailwind-merge": "^2.6.0",
-    "zod": "^3.25.76"
+    "zod": "^3.25.76",
+    "@growth-os/social": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.17.17",
