@@ -635,6 +635,32 @@ begin
 end;
 $$;
 
+
+-- C7. Deleting an organization must cascade cleanly (account closure / data deletion)
+do $$
+declare
+  v_org uuid; res record; v_left int;
+begin
+  select * into res from isolation_test.try('c_user', 'select public.create_organization(''Disposable'', ''iso-disposable'')');
+  -- c_user is rate limited by section C4, so seed the disposable org directly as superuser instead
+  insert into public.organizations (name, slug, created_by) values ('Disposable', 'iso-disposable', isolation_test.id('b_owner')) returning id into v_org;
+  insert into public.memberships (org_id, user_id, role) values (v_org, isolation_test.id('b_owner'), 'owner');
+  insert into public.feature_access (org_id, user_id, feature, level) values (v_org, isolation_test.id('b_owner'), 'brand', 'full');
+  insert into public.invitations (org_id, email, role, token_hash, invited_by)
+    values (v_org, 'gone@isolation.test', 'viewer', repeat('7', 64), isolation_test.id('b_owner'));
+  insert into public.brands (org_id, name) values (v_org, 'Disposable brand');
+
+  select * into res from isolation_test.try('postgres', format('delete from public.organizations where id = %L', v_org));
+  perform isolation_test.record('rules', 'organizations', 'postgres', 'org deletion cascades without audit FK errors', res.state is null, res.state || ' ' || coalesce(res.msg, ''));
+
+  select (select count(*) from public.memberships where org_id = v_org)
+       + (select count(*) from public.brands where org_id = v_org)
+       + (select count(*) from public.invitations where org_id = v_org)
+       + (select count(*) from public.feature_access where org_id = v_org) into v_left;
+  perform isolation_test.record('rules', 'organizations', 'postgres', 'no orphan rows after org deletion', v_left = 0, v_left || ' orphan row(s)');
+end;
+$$;
+
 -- ==============================================================================
 -- REPORT
 -- ==============================================================================
