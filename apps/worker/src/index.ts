@@ -15,16 +15,14 @@ import {
 import { runJob, type Handler } from "./runner";
 import { supabaseJobStore } from "./store";
 import { dummyHandler } from "./handlers/dummy";
+import { mediaNormalizeHandler } from "./handlers/media-normalize";
+import { r2FromEnv } from "./r2";
 
 const log = createLogger({ service: "worker" });
 
 /** Queues that call AI providers and are limited per organization. */
 const GATED_QUEUES = new Set<string>([QUEUE_NAMES.AI_TEXT, QUEUE_NAMES.AI_IMAGE, QUEUE_NAMES.AI_VIDEO]);
 
-/** Handlers by queue. Later phases add theirs here; a queue without a handler is not consumed. */
-const HANDLERS: Partial<Record<JobQueueName, Handler>> = {
-  [QUEUE_NAMES.SYSTEM_DUMMY]: dummyHandler,
-};
 
 async function main() {
   // Fails loudly: a missing variable stops the process before any job can run.
@@ -33,6 +31,12 @@ async function main() {
 
   const db = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
   const store = supabaseJobStore(db);
+  /** Handlers by queue. Later phases add theirs here; a queue without a handler is not consumed. */
+  const HANDLERS: Partial<Record<JobQueueName, Handler>> = {
+    [QUEUE_NAMES.SYSTEM_DUMMY]: dummyHandler,
+    [QUEUE_NAMES.MEDIA_NORMALIZE]: mediaNormalizeHandler(db, r2FromEnv(process.env)),
+  };
+
   const boss = new PgBoss(env.DATABASE_URL);
   boss.on("error", (e: unknown) => log.error("queue error", { error: e instanceof Error ? e.message : String(e) }));
   await boss.start();

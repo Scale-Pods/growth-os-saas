@@ -4,12 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import type { Job } from "@growth-os/db";
 import { createClient } from "@/lib/supabase/client";
 
-const POLL_MS = 30_000;
+/** Realtime is the fast path. While a job is active we also poll every 3 s so the page is right even if Realtime drops. */
+const ACTIVE_POLL_MS = 3_000;
 const TERMINAL = new Set(["done", "failed", "canceled"]);
 
 /**
- * Watch one job: initial fetch, Realtime updates, and a 30-second polling fallback
- * (Realtime can drop; the page must still end up correct). Row-level security applies.
+ * Watch one job: initial fetch, Realtime updates, and a polling fallback that runs only while the job is
+ * queued or running (Realtime can drop; the page must still end up correct). Row-level security applies.
  */
 export function useJob(jobId: string | null) {
   const [job, setJob] = useState<Job | null>(null);
@@ -30,11 +31,13 @@ export function useJob(jobId: string | null) {
       if (e) setError("Could not load job status.");
       else {
         setError(null);
-        if (data) setJob(data as Job);
+        if (data) {
+          setJob(data as Job);
+          // Nothing more can change once the job has ended.
+          if (TERMINAL.has((data as Job).status)) clearInterval(timer);
+        }
       }
     }
-    void load();
-
     const channel = supabase
       .channel(`job:${jobId}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "jobs", filter: `id=eq.${jobId}` }, (payload) => {
@@ -44,7 +47,8 @@ export function useJob(jobId: string | null) {
 
     const timer = setInterval(() => {
       if (!cancelled) void load();
-    }, POLL_MS);
+    }, ACTIVE_POLL_MS);
+    void load();
 
     return () => {
       cancelled = true;

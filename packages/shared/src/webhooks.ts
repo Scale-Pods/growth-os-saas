@@ -61,3 +61,6 @@ export async function receiveWebhook(input: ReceiveInput, handler: () => Promise
   await handler();
   return { status: "processed" };
 }
+
+// NOTE: this file uses node:crypto, so it is deliberately NOT exported from the package index
+// (client components import the index). Import it as "@growth-os/shared/src/webhooks" from server code only.

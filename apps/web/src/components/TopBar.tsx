@@ -34,7 +34,7 @@ export function TopBar({
   return (
     <header className="sticky top-0 z-20 h-[69px] border-b border-border/60 bg-card/75 backdrop-blur-xl px-4 md:px-8 flex items-center justify-between transition-colors">
       {/* Left: Mobile Toggle & Context */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={onMobileOpen}
           className="md:hidden p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-fill-tertiary transition-colors"
@@ -43,7 +43,7 @@ export function TopBar({
           <Menu className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-2 text-xs">
+        <div className="hidden sm:flex items-center gap-2 text-xs">
           <span className="font-semibold text-foreground truncate max-w-[140px] sm:max-w-[200px]">
             {currentOrg.name}
           </span>

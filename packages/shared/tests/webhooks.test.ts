@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { verifyWebhookSignature, receiveWebhook, AppError, type WebhookReceiptStore } from "../src";
+import { AppError } from "../src";
+import { verifyWebhookSignature, receiveWebhook, type WebhookReceiptStore } from "../src/webhooks";
 
 const secret = "test-secret";
 const raw = JSON.stringify({ id: "evt_1", type: "demo" });

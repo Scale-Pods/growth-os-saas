@@ -8,14 +8,16 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "tsx tests/runner.test.ts",
+    "test": "tsx tests/runner.test.ts && tsx tests/normalize.test.ts",
     "start": "tsx --env-file-if-exists=.env.local src/index.ts",
     "smoke": "tsx --env-file-if-exists=.env.local scripts/smoke-dummy-jobs.mts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1175.0",
     "@growth-os/shared": "workspace:*",
     "@supabase/supabase-js": "^2.119.0",
-    "pg-boss": "^12.38.2"
+    "pg-boss": "^12.38.2",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@types/node": "^20.17.17",
