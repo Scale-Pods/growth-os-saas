@@ -22,19 +22,23 @@ import { getSocialProvider } from "@growth-os/social";
 import { publishPost } from "./publish";
 import { supabaseHealthStore, supabasePublishStore } from "./publish-store";
 import { runHealthCheck } from "./health-check";
-import { buildGatewayDeps, DEFAULT_TEXT_MODEL } from "./research/ai-deps";
+import { buildGatewayDeps, buildMeteredDeps, DEFAULT_TEXT_MODEL } from "./research/ai-deps";
+import { alertsRunHandler } from "./alerts/run";
+import { runDigest } from "./alerts/digest";
+import { supabaseAlertsStore, supabaseDigestStore } from "./alerts/store";
+import { watchCollectorsFromEnv } from "./alerts/collectors";
 import { collectorsFromEnv } from "./research/collectors";
 import { supabaseResearchStore } from "./research/store";
 import { intelligenceHandler } from "./research/intelligence";
 import { strategyHandler, strategySectionHandler } from "./research/strategy";
 import { trendScanHandler } from "./research/trends";
-import { fetchPageText } from "./web-text";
+import { fetchPageText, safePostJson } from "./web-text";
 import { AppError } from "@growth-os/shared";
 
 const log = createLogger({ service: "worker" });
 
 /** Queues that call AI providers and are limited per organization. */
-const GATED_QUEUES = new Set<string>([QUEUE_NAMES.AI_TEXT, QUEUE_NAMES.AI_IMAGE, QUEUE_NAMES.AI_VIDEO, QUEUE_NAMES.TRENDS_SCAN]);
+const GATED_QUEUES = new Set<string>([QUEUE_NAMES.AI_TEXT, QUEUE_NAMES.AI_IMAGE, QUEUE_NAMES.AI_VIDEO, QUEUE_NAMES.TRENDS_SCAN, QUEUE_NAMES.ALERTS_RUN]);
 
 /** One queue can carry several kinds of job (ai.text does). Route by the job's kind; an unknown kind fails with a reason. */
 function byKind(map: Record<string, Handler>): Handler {
@@ -69,6 +73,16 @@ async function main() {
       "strategy.regenerate_section": strategySectionHandler(researchDeps),
     }),
     [QUEUE_NAMES.TRENDS_SCAN]: trendScanHandler({ store: research, gateway, model, collectors, log }),
+    [QUEUE_NAMES.ALERTS_RUN]: alertsRunHandler({
+      store: supabaseAlertsStore(db),
+      metered: buildMeteredDeps(db, process.env),
+      textModel: model,
+      embedModel: "text-embedding-3-small",
+      collectors: watchCollectorsFromEnv({ NODE_ENV: process.env.NODE_ENV, ALERT_COLLECTORS: process.env.ALERT_COLLECTORS }),
+      post: (url, body) => safePostJson(url, body),
+      now: () => new Date(),
+      log,
+    }),
   };
 
   // Fails at startup in production if SOCIAL_PROVIDER is not chosen (never falls back to the fake there).
@@ -86,6 +100,8 @@ async function main() {
     QUEUE_NAMES.PUBLISH_SCHEDULER,
     QUEUE_NAMES.PUBLISH_POST,
     QUEUE_NAMES.SOCIAL_TOKEN_CHECK,
+    QUEUE_NAMES.ALERTS_SCHEDULER,
+    QUEUE_NAMES.ALERTS_DIGEST,
   ]) {
     await boss.createQueue(name, QUEUE_RETRY);
   }
@@ -192,6 +208,36 @@ async function main() {
     log.info("channel health check done", summary);
   });
   await boss.schedule(QUEUE_NAMES.SOCIAL_TOKEN_CHECK, "0 4 * * *");
+
+  // ---- Trend Alerts -----------------------------------------------------------------------------
+  // Every 5 minutes: claim the watches that are due (each at most once per interval; over-budget watches stop themselves).
+  await boss.work(QUEUE_NAMES.ALERTS_SCHEDULER, async () => {
+    const { data, error } = await db.rpc("claim_due_watches", { p_limit: 25 });
+    if (error) throw new Error(`claim watches failed: ${error.message}`);
+    for (const row of data ?? []) {
+      try {
+        await boss.send(QUEUE_NAMES.ALERTS_RUN, { jobId: row.job_id }, { ...QUEUE_RETRY });
+      } catch (e) {
+        // Fail the claimed run now, with a reason, instead of leaving it "running" until the rescue job.
+        const message = "The check could not be queued. It will be tried again at the next interval.";
+        log.error("could not queue a watch check", { job_id: row.job_id, org_id: row.org_id, error: e instanceof Error ? e.message : String(e) });
+        await db.from("jobs").update({ status: "failed", error_code: "QUEUE_UNAVAILABLE", error_message: message, finished_at: new Date().toISOString() }).eq("id", row.job_id);
+        await db.from("trend_watch_runs").update({ status: "failed", error_message: message, finished_at: new Date().toISOString() }).eq("id", row.run_id);
+      }
+    }
+  });
+  await boss.schedule(QUEUE_NAMES.ALERTS_SCHEDULER, "*/5 * * * *");
+
+  // Digests: queued stories are sent as one message per rule, daily and weekly at 09:00 UTC.
+  await boss.work<{ period?: string }>(QUEUE_NAMES.ALERTS_DIGEST, async (jobs) => {
+    for (const j of jobs) {
+      const period = j.data?.period === "weekly" ? "weekly" : "daily";
+      const summary = await runDigest({ store: supabaseDigestStore(db), post: (url, body) => safePostJson(url, body), log }, period);
+      log.info("digest sent", { period, ...summary });
+    }
+  });
+  await boss.schedule(QUEUE_NAMES.ALERTS_DIGEST, "0 9 * * *", { period: "daily" }, { key: "daily", tz: "UTC" });
+  await boss.schedule(QUEUE_NAMES.ALERTS_DIGEST, "0 9 * * 1", { period: "weekly" }, { key: "weekly", tz: "UTC" });
 
   // Health endpoint for Railway.
   const port = Number(process.env.PORT ?? 8080);

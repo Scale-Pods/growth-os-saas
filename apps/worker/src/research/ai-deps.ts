@@ -4,7 +4,9 @@ import {
   cachedCostSource,
   getModel,
   googleTextProvider,
+  openAiEmbedder,
   openAiTextProvider,
+  type MeteredDeps,
   supabaseCostSource,
   supabaseLedger,
   supabaseUsageRecorder,
@@ -42,6 +44,19 @@ export function buildGatewayDeps(db: SupabaseClient, env: { OPENAI_API_KEY?: str
       const p = providers[kind];
       if (!p) throw new AppError("INTERNAL_ERROR", "AI is not set up on this server yet. Nothing was charged.", 503);
       return p;
+    },
+  };
+}
+
+/** The gateway plus embeddings, for checks that make several cheap calls and are billed once per run (Trend Alerts). */
+export function buildMeteredDeps(db: SupabaseClient, env: { OPENAI_API_KEY?: string; GOOGLE_AI_API_KEY?: string }): MeteredDeps {
+  const base = buildGatewayDeps(db, env);
+  const embedder = env.OPENAI_API_KEY ? openAiEmbedder(env.OPENAI_API_KEY) : null;
+  return {
+    ...base,
+    embedderFor() {
+      if (!embedder) throw new AppError("INTERNAL_ERROR", "AI is not set up on this server yet. Nothing was charged.", 503);
+      return embedder;
     },
   };
 }

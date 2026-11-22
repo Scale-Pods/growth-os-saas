@@ -8,11 +8,12 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "tsx tests/runner.test.ts && tsx tests/normalize.test.ts && tsx tests/publish.test.ts && tsx tests/health-check.test.ts && tsx tests/web-text.test.ts && tsx tests/research.test.ts",
+    "test": "tsx tests/runner.test.ts && tsx tests/normalize.test.ts && tsx tests/publish.test.ts && tsx tests/health-check.test.ts && tsx tests/web-text.test.ts && tsx tests/research.test.ts && tsx tests/alerts-pipeline.test.ts && tsx tests/alerts-run.test.ts && tsx tests/alerts-digest.test.ts",
     "start": "tsx --env-file-if-exists=.env.local src/index.ts",
     "smoke": "tsx --env-file-if-exists=.env.local scripts/smoke-dummy-jobs.mts",
     "smoke:publish": "tsx --env-file-if-exists=.env.local scripts/smoke-publish.mts",
-    "smoke:research": "tsx --env-file-if-exists=.env.local scripts/smoke-research.mts"
+    "smoke:research": "tsx --env-file-if-exists=.env.local scripts/smoke-research.mts",
+    "smoke:alerts": "tsx --env-file-if-exists=.env.local scripts/smoke-alerts.mts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1175.0",

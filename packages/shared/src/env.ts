@@ -44,6 +44,8 @@ export const workerEnvSchema = z.object({
   AI_DEFAULT_TEXT_MODEL: z.string().optional(),
   // 'fake' switches on sample trend collectors (never in production).
   TREND_COLLECTORS: z.string().optional(),
+  // 'fake' switches on sample sources for Trend Alerts watches (never in production).
+  ALERT_COLLECTORS: z.string().optional(),
   SUPABASE_URL: z.string().url(),
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   // Needed from P04.

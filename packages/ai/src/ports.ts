@@ -57,3 +57,8 @@ export interface TextProvider {
 export interface Moderator {
   check(text: string): Promise<{ flagged: boolean; reason?: string }>;
 }
+
+/** Turns texts into number vectors (for "is this related?" and "is this the same story?"). */
+export interface Embedder {
+  embed(model: string, inputs: string[], signal?: AbortSignal): Promise<{ vectors: number[][]; tokens: number }>;
+}

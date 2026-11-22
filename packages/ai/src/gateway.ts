@@ -58,7 +58,7 @@ export function stripCodeFences(text: string): string {
   return (m ? m[1]! : t).trim();
 }
 
-function mapReserveError(e: unknown): AppError {
+export function mapReserveError(e: unknown): AppError {
   const msg = e instanceof Error ? e.message : String(e);
   if (msg.includes("INSUFFICIENT_CREDITS"))
     return new AppError("INSUFFICIENT_CREDITS", "You do not have enough credits for this. Add credits or wait for your monthly refill.", 402);

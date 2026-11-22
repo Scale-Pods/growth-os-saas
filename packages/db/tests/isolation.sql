@@ -253,6 +253,37 @@ begin
 end;
 $$;
 
+-- P06b (Trend Alerts) fixtures
+do $$
+declare
+  v_org_a uuid := isolation_test.id('org_a'); v_org_b uuid := isolation_test.id('org_b');
+  v_brand_a uuid := isolation_test.id('brand_a'); v_brand_b uuid := isolation_test.id('brand_b');
+  v_w_a uuid; v_w_b uuid; v_run_a uuid; v_run_b uuid; v_ev_a uuid; v_ev_b uuid; v_rule_a uuid; v_rule_b uuid;
+begin
+  insert into public.trend_watches (org_id, brand_id, name, keywords, sources, created_by, status)
+    values (v_org_a, v_brand_a, 'Org A watch', array['robots'], array['Google News'], isolation_test.id('a_owner'), 'paused') returning id into v_w_a;
+  insert into public.trend_watches (org_id, brand_id, name, keywords, sources, created_by, status)
+    values (v_org_b, v_brand_b, 'Org B watch', array['robots'], array['Google News'], isolation_test.id('b_owner'), 'paused') returning id into v_w_b;
+  insert into public.trend_watch_runs (org_id, watch_id, status, trigger) values (v_org_a, v_w_a, 'done', 'manual') returning id into v_run_a;
+  insert into public.trend_watch_runs (org_id, watch_id, status, trigger) values (v_org_b, v_w_b, 'done', 'manual') returning id into v_run_b;
+  insert into public.trend_mentions (org_id, watch_id, run_id, source, title, url, url_hash) values
+    (v_org_a, v_w_a, v_run_a, 'Google News', 'Org A secret headline', 'https://a.example/1', repeat('a', 64)),
+    (v_org_b, v_w_b, v_run_b, 'Google News', 'Org B secret headline', 'https://b.example/1', repeat('b', 64));
+  insert into public.trend_events (org_id, brand_id, watch_id, title, summary, relevance_score, sentiment, importance, topic)
+    values (v_org_a, v_brand_a, v_w_a, 'Org A secret story', 'summary', 80, 'neutral', 'medium', 'robots') returning id into v_ev_a;
+  insert into public.trend_events (org_id, brand_id, watch_id, title, summary, relevance_score, sentiment, importance, topic)
+    values (v_org_b, v_brand_b, v_w_b, 'Org B secret story', 'summary', 80, 'neutral', 'medium', 'robots') returning id into v_ev_b;
+  insert into public.trend_stats_daily (org_id, watch_id, day, mention_count) values (v_org_a, v_w_a, current_date, 3), (v_org_b, v_w_b, current_date, 3);
+  insert into public.trend_rules (org_id, watch_id, name, channel) values (v_org_a, v_w_a, 'Org A rule', 'in_app') returning id into v_rule_a;
+  insert into public.trend_rules (org_id, watch_id, name, channel) values (v_org_b, v_w_b, 'Org B rule', 'in_app') returning id into v_rule_b;
+  insert into public.trend_deliveries (org_id, event_id, rule_id, channel, status) values (v_org_a, v_ev_a, v_rule_a, 'in_app', 'sent'), (v_org_b, v_ev_b, v_rule_b, 'in_app', 'sent');
+  insert into public.notifications (org_id, user_id, type, title, body) values
+    (v_org_a, isolation_test.id('a_owner'), 'trend_alert', 'Org A secret notice', 'body'),
+    (v_org_b, isolation_test.id('b_owner'), 'trend_alert', 'Org B secret notice', 'body');
+  insert into isolation_test.ids values ('watch_a', v_w_a), ('watch_b', v_w_b), ('event_a', v_ev_a), ('rule_a', v_rule_a), ('wrun_a', v_run_a);
+end;
+$$;
+
 -- ==============================================================================
 -- A. CATALOGUE CHECKS
 -- ==============================================================================
@@ -1114,6 +1145,155 @@ begin
   perform isolation_test.record('research', 'intelligence_reports', 'b_owner', 'cannot read org A reports', v_n = 0, 'rows=' || v_n);
   v_n := isolation_test.count_as('a_viewer', 'select count(*) from public.intelligence_reports where sections::text like ''%Org A secret%''');
   perform isolation_test.record('research', 'intelligence_reports', 'a_viewer', 'member can read org reports', v_n = 1, 'rows=' || v_n);
+end;
+$$;
+
+
+-- C11. Trend Alerts (P06b) ----------------------------------------------------------------------
+do $$
+declare
+  v_a uuid := isolation_test.id('org_a');
+  v_brand uuid := isolation_test.id('brand_a');
+  v_user uuid := isolation_test.id('a_owner');
+  v_w uuid := isolation_test.id('watch_a');
+  v_ev uuid := isolation_test.id('event_a');
+  v_rule uuid := isolation_test.id('rule_a');
+  res record; v_n int; v_status text; v_w2 uuid; v_job uuid; v_run uuid; v_refused text; v_next timestamptz; v_notice uuid; i int; v_org2 uuid; v_msg text;
+begin
+  -- Creating watches needs Full/Edit access to trend_alerts; a stranger and a viewer cannot
+  select * into res from isolation_test.try('a_admin', format('insert into public.trend_watches (org_id, brand_id, name, keywords, sources) values (%L, %L, ''Admin watch'', array[''cobots''], array[''Google News''])', v_a, v_brand));
+  perform isolation_test.record('alerts', 'trend_watches', 'a_admin', 'editor can create a watch', res.state is null, coalesce(res.msg, ''));
+  select * into res from isolation_test.try('a_viewer', format('insert into public.trend_watches (org_id, brand_id, name, keywords, sources) values (%L, %L, ''Viewer watch'', array[''x''], array[''Google News''])', v_a, v_brand));
+  perform isolation_test.record('alerts', 'trend_watches', 'a_viewer', 'viewer cannot create a watch', res.state = '42501', coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('b_owner', format('insert into public.trend_watches (org_id, brand_id, name, keywords, sources) values (%L, %L, ''Hack'', array[''x''], array[''Google News''])', v_a, v_brand));
+  perform isolation_test.record('alerts', 'trend_watches', 'b_owner', 'stranger cannot create a watch in another workspace', res.state = '42501', coalesce(res.msg, 'ACCEPTED'));
+
+  -- Shape rules
+  select * into res from isolation_test.try('postgres', format('insert into public.trend_watches (org_id, brand_id, name, keywords, sources) values (%L, %L, ''x'', ''{}'', array[''Google News''])', v_a, v_brand));
+  perform isolation_test.record('alerts', 'trend_watches', 'postgres', 'a watch needs at least one keyword', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('postgres', format('insert into public.trend_watches (org_id, brand_id, name, keywords, sources) values (%L, %L, ''x'', array[''k''], array[''Myspace''])', v_a, v_brand));
+  perform isolation_test.record('alerts', 'trend_watches', 'postgres', 'unknown source refused', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('postgres', format('insert into public.trend_watches (org_id, brand_id, name, keywords, sources, frequency_minutes) values (%L, %L, ''x'', array[''k''], array[''Google News''], 5)', v_a, v_brand));
+  perform isolation_test.record('alerts', 'trend_watches', 'postgres', 'check every 5 minutes refused (minimum 30)', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('postgres', format('insert into public.trend_watches (org_id, brand_id, name, keywords, sources, monthly_budget_credits) values (%L, %L, ''x'', array[''k''], array[''Google News''], 0)', v_a, v_brand));
+  perform isolation_test.record('alerts', 'trend_watches', 'postgres', 'a watch must have a budget (never unattended and uncapped)', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('postgres', format('insert into public.trend_watches (org_id, brand_id, name, keywords, sources, rss_feeds) values (%L, %L, ''x'', array[''k''], array[''RSS''], array[''ftp://x.example/feed''])', v_a, v_brand));
+  perform isolation_test.record('alerts', 'trend_watches', 'postgres', 'feed addresses must be https/http', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+
+  -- Plan limit on watches (trial = 10). Org A already has the fixture + admin watch.
+  select count(*) into v_n from public.trend_watches where org_id = v_a;
+  for i in v_n + 1 .. 10 loop
+    insert into public.trend_watches (org_id, brand_id, name, keywords, sources) values (v_a, v_brand, 'filler ' || i, array['k'], array['Google News']);
+  end loop;
+  select * into res from isolation_test.try('postgres', format('insert into public.trend_watches (org_id, brand_id, name, keywords, sources) values (%L, %L, ''eleventh'', array[''k''], array[''Google News''])', v_a, v_brand));
+  perform isolation_test.record('alerts', 'trend_watches', 'postgres', 'plan limit refuses the 11th watch', res.msg like '%Plan limit%', coalesce(res.msg, 'ACCEPTED'));
+  delete from public.trend_watches where org_id = v_a and name like 'filler %';
+
+  -- Server-owned fields cannot be written from the browser
+  select id into v_w2 from public.trend_watches where org_id = v_a and name = 'Admin watch';
+  select * into res from isolation_test.try('a_admin', format('update public.trend_watches set spent_credits_month = 0, next_run_at = now() + interval ''1 day'' where id = %L', v_w2));
+  perform isolation_test.record('alerts', 'trend_watches', 'a_admin', 'browser cannot write spend or schedule fields', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('a_admin', format('update public.trend_watches set status = ''budget_paused'' where id = %L', v_w2));
+  perform isolation_test.record('alerts', 'trend_watches', 'a_admin', 'browser cannot set budget_paused', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('a_admin', format('update public.trend_watches set status = ''paused'', name = ''Renamed'', keywords = array[''a'',''b''], monthly_budget_credits = 20 where id = %L', v_w2));
+  perform isolation_test.record('alerts', 'trend_watches', 'a_admin', 'editor can pause and edit a watch', res.state is null and res.rows_affected = 1, coalesce(res.msg, 'rows=' || res.rows_affected));
+  select * into res from isolation_test.try('a_viewer', format('update public.trend_watches set name = ''pwned'' where id = %L', v_w2));
+  perform isolation_test.record('alerts', 'trend_watches', 'a_viewer', 'viewer cannot edit a watch', res.state = '42501' or coalesce(res.rows_affected, 0) = 0, coalesce(res.msg, 'rows=' || res.rows_affected));
+
+  -- Starting a run: job and run together; one at a time; paused watches do not run
+  update public.trend_watches set status = 'active', spent_credits_month = 0, monthly_budget_credits = 20 where id = v_w2;
+  select job_id, run_id, refused into v_job, v_run, v_refused from public.start_watch_run(v_w2, 'manual', v_user);
+  select count(*) into v_n from public.jobs j join public.trend_watch_runs r on r.job_id = j.id where j.id = v_job and r.id = v_run and j.kind = 'alerts.run' and r.status = 'running' and r.trigger = 'manual';
+  perform isolation_test.record('alerts', 'start_watch_run', 'postgres', 'a run starts with its job, linked', v_job is not null and v_n = 1 and v_refused is null, 'refused=' || coalesce(v_refused, '-') || ' linked=' || v_n);
+  select refused into v_refused from public.start_watch_run(v_w2, 'manual', v_user);
+  perform isolation_test.record('alerts', 'start_watch_run', 'postgres', 'a second run while one is running is refused', v_refused = 'running', 'refused=' || coalesce(v_refused, '-'));
+  update public.trend_watch_runs set status = 'done' where id = v_run;
+  update public.trend_watches set status = 'paused' where id = v_w2;
+  select refused into v_refused from public.start_watch_run(v_w2, 'manual', v_user);
+  perform isolation_test.record('alerts', 'start_watch_run', 'postgres', 'a paused watch does not run', v_refused = 'paused', 'refused=' || coalesce(v_refused, '-'));
+
+  -- Budget: spending past the monthly budget stops the watch; a new month starts it again
+  update public.trend_watches set status = 'active', spent_credits_month = 0, monthly_budget_credits = 10 where id = v_w2;
+  select public.record_watch_spend(v_w2, 6) into v_status;
+  perform isolation_test.record('alerts', 'record_watch_spend', 'postgres', 'under budget keeps running', v_status = 'active', 'status=' || v_status);
+  select public.record_watch_spend(v_w2, 5) into v_status;
+  perform isolation_test.record('alerts', 'record_watch_spend', 'postgres', 'reaching the budget stops the watch', v_status = 'budget_paused', 'status=' || v_status);
+  select refused into v_refused from public.start_watch_run(v_w2, 'schedule', null);
+  perform isolation_test.record('alerts', 'start_watch_run', 'postgres', 'a budget-paused watch does not run', v_refused in ('paused', 'budget'), 'refused=' || coalesce(v_refused, '-'));
+  update public.trend_watches set month_key = '2020-01' where id = v_w2;
+  select job_id, refused into v_job, v_refused from public.start_watch_run(v_w2, 'schedule', null);
+  select status, spent_credits_month into v_status, v_n from public.trend_watches where id = v_w2;
+  perform isolation_test.record('alerts', 'start_watch_run', 'postgres', 'a new month resets spend and restarts a budget-paused watch', v_job is not null and v_status = 'active' and v_n = 0, 'status=' || v_status || ' spent=' || v_n || ' refused=' || coalesce(v_refused, '-'));
+  update public.trend_watch_runs set status = 'done' where watch_id = v_w2;
+
+  -- Scheduling: only due, active, in-budget watches are claimed, each once
+  update public.trend_watches set status = 'paused' where org_id = v_a;
+  update public.trend_watches set status = 'active', next_run_at = now() - interval '1 minute', spent_credits_month = 0, monthly_budget_credits = 50 where id = v_w2;
+  select count(*) into v_n from public.claim_due_watches(10);
+  perform isolation_test.record('alerts', 'claim_due_watches', 'postgres', 'a due watch is claimed', v_n = 1, 'claimed=' || v_n);
+  select next_run_at into v_next from public.trend_watches where id = v_w2;
+  perform isolation_test.record('alerts', 'claim_due_watches', 'postgres', 'next run moves forward by the chosen frequency', v_next > now() + interval '30 minutes', 'next=' || v_next);
+  select count(*) into v_n from public.claim_due_watches(10);
+  perform isolation_test.record('alerts', 'claim_due_watches', 'postgres', 'it is not claimed twice', v_n = 0, 'claimed=' || v_n);
+  update public.trend_watch_runs set status = 'done' where watch_id = v_w2;
+  update public.trend_watches set next_run_at = now() + interval '3 hours' where id = v_w2;
+  select count(*) into v_n from public.claim_due_watches(10);
+  perform isolation_test.record('alerts', 'claim_due_watches', 'postgres', 'a watch that is not due is left alone', v_n = 0, 'claimed=' || v_n);
+  update public.trend_watches set next_run_at = now() - interval '1 minute', spent_credits_month = 50 where id = v_w2;
+  select count(*) into v_n from public.claim_due_watches(10);
+  select status into v_status from public.trend_watches where id = v_w2;
+  perform isolation_test.record('alerts', 'claim_due_watches', 'postgres', 'an over-budget watch is not run and is marked budget_paused', v_n = 0 and v_status = 'budget_paused', 'claimed=' || v_n || ' status=' || v_status);
+
+  -- Rescue: a stuck alerts.run fails its run row too
+  update public.trend_watches set status = 'active', spent_credits_month = 0, month_key = to_char(now() at time zone 'utc', 'YYYY-MM') where id = v_w2;
+  select job_id, run_id into v_job, v_run from public.start_watch_run(v_w2, 'manual', v_user);
+  update public.jobs set status = 'running', started_at = now() - interval '40 minutes', heartbeat_at = now() - interval '30 minutes' where id = v_job;
+  perform public.rescue_stuck_jobs(10);
+  select status, error_message into v_status, v_msg from public.trend_watch_runs where id = v_run;
+  perform isolation_test.record('alerts', 'rescue_stuck_jobs', 'postgres', 'a stuck run is failed with a reason', v_status = 'failed' and length(coalesce(v_msg, '')) > 10, 'status=' || v_status);
+
+  -- Alert rules
+  select * into res from isolation_test.try('a_admin', format('insert into public.trend_rules (org_id, watch_id, name, channel, target) values (%L, %L, ''to slack'', ''slack'', ''https://hooks.slack.com/services/T/B/x'')', v_a, v_w));
+  perform isolation_test.record('alerts', 'trend_rules', 'a_admin', 'editor can add a Slack rule', res.state is null, coalesce(res.msg, ''));
+  select * into res from isolation_test.try('postgres', format('insert into public.trend_rules (org_id, watch_id, name, channel, target) values (%L, %L, ''bad'', ''slack'', ''http://insecure.example'')', v_a, v_w));
+  perform isolation_test.record('alerts', 'trend_rules', 'postgres', 'Slack and webhook targets must be https', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('postgres', format('insert into public.trend_rules (org_id, watch_id, name, channel) values (%L, %L, ''bad'', ''webhook'')', v_a, v_w));
+  perform isolation_test.record('alerts', 'trend_rules', 'postgres', 'a webhook rule needs a target', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('postgres', format('insert into public.trend_rules (org_id, watch_id, name, channel) values (%L, %L, ''bad'', ''email'')', v_a, v_w));
+  perform isolation_test.record('alerts', 'trend_rules', 'postgres', 'email is not offered until it is set up', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('a_viewer', format('insert into public.trend_rules (org_id, watch_id, name, channel) values (%L, %L, ''v'', ''in_app'')', v_a, v_w));
+  perform isolation_test.record('alerts', 'trend_rules', 'a_viewer', 'viewer cannot add a rule', res.state = '42501', coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('postgres', format('insert into public.trend_rules (org_id, watch_id, name, channel) values (%L, %L, ''other org watch'', ''in_app'')', isolation_test.id('org_b'), v_w));
+  perform isolation_test.record('alerts', 'trend_rules', 'postgres', 'a rule cannot point at another workspace''s watch', res.state is not null, coalesce(res.msg, 'ACCEPTED'));
+
+  -- One delivery per story and rule; one stored mention per link
+  select * into res from isolation_test.try('postgres', format('insert into public.trend_deliveries (org_id, event_id, rule_id, channel, status) values (%L, %L, %L, ''in_app'', ''sent'')', v_a, v_ev, v_rule));
+  perform isolation_test.record('alerts', 'trend_deliveries', 'postgres', 'a story is delivered once per rule', res.state = '23505', coalesce(res.msg, 'ACCEPTED'));
+  select * into res from isolation_test.try('postgres', format('insert into public.trend_mentions (org_id, watch_id, run_id, source, title, url, url_hash) values (%L, %L, isolation_test.id(''wrun_a''), ''Google News'', ''dup'', ''https://a.example/1'', %L)', v_a, v_w, repeat('a', 64)));
+  perform isolation_test.record('alerts', 'trend_mentions', 'postgres', 'a link is stored once per watch (seen links are skipped later)', res.state = '23505', coalesce(res.msg, 'ACCEPTED'));
+
+  -- Notifications: private to the person they are for
+  v_n := isolation_test.count_as('a_owner', format('select count(*) from public.notifications where org_id = %L', v_a));
+  perform isolation_test.record('alerts', 'notifications', 'a_owner', 'owner sees their own notification', v_n = 1, 'rows=' || v_n);
+  v_n := isolation_test.count_as('a_admin', format('select count(*) from public.notifications where org_id = %L', v_a));
+  perform isolation_test.record('alerts', 'notifications', 'a_admin', 'a teammate does not see someone else''s notification', v_n = 0, 'rows=' || v_n);
+  select id into v_notice from public.notifications where org_id = v_a and user_id = v_user limit 1;
+  select * into res from isolation_test.try('a_owner', format('update public.notifications set read_at = now() where id = %L', v_notice));
+  perform isolation_test.record('alerts', 'notifications', 'a_owner', 'owner can mark their notification read', res.state is null and res.rows_affected = 1, coalesce(res.msg, 'rows=' || res.rows_affected));
+  select * into res from isolation_test.try('a_owner', format('update public.notifications set title = ''forged'' where id = %L', v_notice));
+  perform isolation_test.record('alerts', 'notifications', 'a_owner', 'notification text cannot be edited from the browser', res.state = '42501', coalesce(res.msg, 'ACCEPTED'));
+
+  -- Who can call what
+  perform isolation_test.record('alerts', 'start_watch_run', 'authenticated', 'cannot execute (server only)', not has_function_privilege('authenticated', 'public.start_watch_run(uuid,text,uuid)', 'execute'));
+  perform isolation_test.record('alerts', 'claim_due_watches', 'authenticated', 'cannot execute (server only)', not has_function_privilege('authenticated', 'public.claim_due_watches(int)', 'execute'));
+  perform isolation_test.record('alerts', 'record_watch_spend', 'authenticated', 'cannot execute (server only)', not has_function_privilege('authenticated', 'public.record_watch_spend(uuid,int)', 'execute'));
+  perform isolation_test.record('alerts', 'claim_due_watches', 'service_role', 'can execute', has_function_privilege('service_role', 'public.claim_due_watches(int)', 'execute'));
+
+  -- A stranger cannot read org A's alerts (the matrix covers every command; spot check the secret text)
+  v_n := isolation_test.count_as('b_owner', 'select count(*) from public.trend_events where title like ''Org A secret%''');
+  perform isolation_test.record('alerts', 'trend_events', 'b_owner', 'cannot read org A stories', v_n = 0, 'rows=' || v_n);
+  v_n := isolation_test.count_as('a_viewer', 'select count(*) from public.trend_events where title like ''Org A secret%''');
+  perform isolation_test.record('alerts', 'trend_events', 'a_viewer', 'member can read org stories', v_n = 1, 'rows=' || v_n);
 end;
 $$;
 

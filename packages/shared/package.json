@@ -6,7 +6,7 @@
   "types": "./src/index.ts",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "tsx tests/run-brandContext-test.ts && tsx tests/env.test.ts && tsx tests/api-guards.test.ts && tsx tests/webhooks.test.ts && tsx tests/queues.test.ts && tsx tests/uploads.test.ts && tsx tests/publishing.test.ts",
+    "test": "tsx tests/run-brandContext-test.ts && tsx tests/env.test.ts && tsx tests/api-guards.test.ts && tsx tests/webhooks.test.ts && tsx tests/queues.test.ts && tsx tests/uploads.test.ts && tsx tests/publishing.test.ts && tsx tests/alerts.test.ts",
     "lint": "eslint ."
   },
   "dependencies": {

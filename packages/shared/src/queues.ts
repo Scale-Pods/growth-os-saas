@@ -22,6 +22,7 @@ export const JOB_QUEUES = [
   QUEUE_NAMES.SYSTEM_DUMMY,
   QUEUE_NAMES.MEDIA_NORMALIZE,
   QUEUE_NAMES.TRENDS_SCAN,
+  QUEUE_NAMES.ALERTS_RUN,
 ] as const;
 
 export type JobQueueName = (typeof JOB_QUEUES)[number];
@@ -43,6 +44,7 @@ export const JOB_KIND_TO_QUEUE: Record<string, JobQueueName> = {
   "strategy.generate": QUEUE_NAMES.AI_TEXT,
   "strategy.regenerate_section": QUEUE_NAMES.AI_TEXT,
   "trends.scan": QUEUE_NAMES.TRENDS_SCAN,
+  "alerts.run": QUEUE_NAMES.ALERTS_RUN,
 };
 
 /** Retry policy: provider errors retry with back-off; validation and credit failures never retry. */
@@ -62,6 +64,7 @@ export const JOB_ETA_SECONDS: Record<string, number> = {
   "strategy.generate": 120,
   "strategy.regenerate_section": 25,
   "trends.scan": 60,
+  "alerts.run": 30,
 };
 
 /**

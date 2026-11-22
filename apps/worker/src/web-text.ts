@@ -37,7 +37,7 @@ export function isPrivateAddress(ip: string): boolean {
 }
 
 export interface FetchDeps {
-  fetch: (url: string, init: { redirect: "manual"; signal: AbortSignal; headers: Record<string, string> }) => Promise<Response>;
+  fetch: (url: string, init: { redirect: "manual"; signal: AbortSignal; headers: Record<string, string>; method?: string; body?: string }) => Promise<Response>;
   resolve: (host: string) => Promise<string[]>;
 }
 
@@ -73,22 +73,30 @@ export function htmlToText(html: string): string {
     .trim();
 }
 
-async function readCapped(res: Response): Promise<string> {
+async function readCapped(res: Response, maxBytes: number = MAX_BYTES): Promise<string> {
   if (!res.body) return await res.text();
   const reader = res.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
-  while (total < MAX_BYTES) {
+  while (total < maxBytes) {
     const { done, value } = await reader.read();
     if (done || !value) break;
     chunks.push(value);
     total += value.length;
   }
   await reader.cancel().catch(() => undefined);
-  return new TextDecoder("utf-8", { fatal: false }).decode(Buffer.concat(chunks).subarray(0, MAX_BYTES));
+  return new TextDecoder("utf-8", { fatal: false }).decode(Buffer.concat(chunks).subarray(0, maxBytes));
 }
 
-export async function fetchPageText(address: string, d: FetchDeps = defaultFetchDeps): Promise<string> {
+interface BodyOptions {
+  maxBytes: number;
+  /** Substrings of an allowed content-type. */
+  types: string[];
+  accept: string;
+  typeMessage: string;
+}
+
+async function fetchBody(address: string, d: FetchDeps, o: BodyOptions): Promise<{ body: string; type: string }> {
   let url: URL;
   try {
     url = new URL(address);
@@ -100,7 +108,7 @@ export async function fetchPageText(address: string, d: FetchDeps = defaultFetch
     await assertPublic(url, d);
     let res: Response;
     try {
-      res = await d.fetch(url.toString(), { redirect: "manual", signal: AbortSignal.timeout(TIMEOUT_MS), headers: { "user-agent": "GrowthOS-Analyzer/1.0", accept: "text/html,text/plain" } });
+      res = await d.fetch(url.toString(), { redirect: "manual", signal: AbortSignal.timeout(TIMEOUT_MS), headers: { "user-agent": "GrowthOS-Analyzer/1.0", accept: o.accept } });
     } catch {
       throw new AppError("PROVIDER_ERROR", "We could not reach that website.", 502);
     }
@@ -116,12 +124,48 @@ export async function fetchPageText(address: string, d: FetchDeps = defaultFetch
     }
     if (!res.ok) throw new AppError("PROVIDER_ERROR", `We could not read that website (it answered ${res.status}).`, 502);
     const type = (res.headers.get("content-type") ?? "").toLowerCase();
-    if (!type.includes("text/html") && !type.includes("text/plain")) {
-      throw new AppError("VALIDATION_ERROR", "That address is not a text or HTML page.", 400);
-    }
-    const body = await readCapped(res);
-    const text = type.includes("text/html") ? htmlToText(body) : body.replace(/\s+/g, " ").trim();
-    return text.slice(0, MAX_TEXT);
+    if (!o.types.some((t) => type.includes(t))) throw new AppError("VALIDATION_ERROR", o.typeMessage, 400);
+    return { body: await readCapped(res, o.maxBytes), type };
   }
   throw new AppError("PROVIDER_ERROR", "The website redirected too many times.", 502);
+}
+
+export async function fetchPageText(address: string, d: FetchDeps = defaultFetchDeps): Promise<string> {
+  const { body, type } = await fetchBody(address, d, { maxBytes: MAX_BYTES, types: ["text/html", "text/plain"], accept: "text/html,text/plain", typeMessage: "That address is not a text or HTML page." });
+  const text = type.includes("text/html") ? htmlToText(body) : body.replace(/\s+/g, " ").trim();
+  return text.slice(0, MAX_TEXT);
+}
+
+/** A feed (RSS or Atom) as raw XML, with the same protections as page fetching. */
+export async function fetchRawText(address: string, d: FetchDeps = defaultFetchDeps, maxBytes = 1_000_000): Promise<string> {
+  const { body } = await fetchBody(address, d, { maxBytes, types: ["xml", "text/plain", "text/html"], accept: "application/rss+xml,application/atom+xml,application/xml,text/xml", typeMessage: "That address is not an XML feed." });
+  return body;
+}
+
+/**
+ * POST JSON to a customer-supplied address (a Slack or webhook target). https only, public addresses only, and redirects are
+ * NOT followed. Returns the outcome instead of throwing for an unreachable or failing endpoint.
+ */
+export async function safePostJson(address: string, payload: unknown, d: FetchDeps = defaultFetchDeps): Promise<{ ok: boolean; status: number }> {
+  let url: URL;
+  try {
+    url = new URL(address);
+  } catch {
+    throw new AppError("VALIDATION_ERROR", "That web address is not valid.", 400);
+  }
+  if (url.protocol !== "https:") throw refuse();
+  await assertPublic(url, d);
+  try {
+    const res = await d.fetch(url.toString(), {
+      method: "POST",
+      redirect: "manual",
+      signal: AbortSignal.timeout(8_000),
+      headers: { "content-type": "application/json", "user-agent": "GrowthOS-Alerts/1.0" },
+      body: JSON.stringify(payload),
+    });
+    await res.body?.cancel().catch(() => undefined);
+    return { ok: res.ok, status: res.status };
+  } catch {
+    return { ok: false, status: 0 };
+  }
 }

@@ -16,6 +16,8 @@ export const QUEUE_NAMES = {
   SYSTEM_RESCUE: "system.rescue",
   SYSTEM_RECONCILE: "system.reconcile",
   MEDIA_NORMALIZE: "media.normalize",
+  ALERTS_SCHEDULER: "alerts.scheduler",
+  ALERTS_DIGEST: "alerts.digest",
 } as const;
 
 export const CONCURRENCY_LIMITS = {

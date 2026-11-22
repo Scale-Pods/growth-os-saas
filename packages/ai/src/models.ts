@@ -20,6 +20,7 @@ export const MODELS: readonly ModelInfo[] = [
   { id: "gemini-3.1-flash-lite", provider: "google", capability: "text", label: "Gemini 3.1 Flash-Lite" },
   { id: "gemini-3.8-flash", provider: "google", capability: "text", label: "Gemini 3.8 Flash" },
   { id: "gpt-4o-mini", provider: "openai", capability: "text", label: "GPT-4o mini" },
+  { id: "text-embedding-3-small", provider: "openai", capability: "text", label: "OpenAI embeddings (small)" },
   {
     id: "gemini-2.5-flash-image",
     provider: "google",

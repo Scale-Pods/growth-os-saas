@@ -1,4 +1,4 @@
-import { ProviderFailure, type TextProvider, type TextRequest, type TextResponse } from "./ports";
+import { ProviderFailure, type Embedder, type TextProvider, type TextRequest, type TextResponse } from "./ports";
 
 function failure(provider: string, status: number, body: string): ProviderFailure {
   // Keep the message short and free of anything that could contain a key or the prompt.
@@ -71,6 +71,29 @@ export function googleTextProvider(apiKey: string, fetchImpl: typeof fetch = fet
       const text = (j.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("");
       if (!text) throw new ProviderFailure("google returned no text", res.status, false);
       return { text, inputTokens: j.usageMetadata?.promptTokenCount ?? 0, outputTokens: j.usageMetadata?.candidatesTokenCount ?? 0 };
+    },
+  };
+}
+
+export function openAiEmbedder(apiKey: string, fetchImpl: typeof fetch = fetch): Embedder {
+  return {
+    async embed(model, inputs, signal) {
+      let res: Response;
+      try {
+        res = await fetchImpl("https://api.openai.com/v1/embeddings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({ model, input: inputs }),
+          signal,
+        });
+      } catch (e) {
+        throw new ProviderFailure(`openai embeddings request failed: ${e instanceof Error ? e.name : "error"}`, null, true);
+      }
+      if (!res.ok) throw failure("openai", res.status, await res.text());
+      const j = (await res.json()) as { data?: { embedding?: number[]; index?: number }[]; usage?: { total_tokens?: number } };
+      const rows = [...(j.data ?? [])].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+      if (rows.length !== inputs.length || rows.some((r) => !Array.isArray(r.embedding))) throw new ProviderFailure("openai returned unexpected embeddings", res.status, false);
+      return { vectors: rows.map((r) => r.embedding as number[]), tokens: j.usage?.total_tokens ?? 0 };
     },
   };
 }

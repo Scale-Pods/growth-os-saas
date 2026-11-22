@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { isPrivateAddress, fetchPageText, htmlToText, type FetchDeps } from "../src/web-text";
+import { isPrivateAddress, fetchPageText, fetchRawText, safePostJson, htmlToText, type FetchDeps } from "../src/web-text";
 
 // ---- address classification --------------------------------------------------------------------
 for (const ip of ["127.0.0.1", "10.0.0.5", "172.16.0.1", "172.31.255.255", "192.168.1.1", "169.254.169.254", "0.0.0.0", "100.64.0.1", "::1", "fe80::1", "fc00::1", "fd12:3456::1", "::ffff:10.0.0.1", "::ffff:127.0.0.1"]) {
@@ -92,6 +92,59 @@ async function main() {
   }
   // network failures become a readable error
   await assert.rejects(fetchPageText("https://down.example/", deps({ fetch: async () => { throw new Error("ECONNRESET 10.0.0.1"); } })), /could not reach/i);
+
+  // ---- raw feeds and outbound posts (Trend Alerts) ----------------------------------------------------
+  {
+    const feed = "<rss><channel><item><title>x</title></item></channel></rss>";
+    const d = deps({ pages: { "https://feeds.example/rss": { status: 200, headers: { "content-type": "application/rss+xml; charset=utf-8" }, body: feed } } });
+    assert.equal(await fetchRawText("https://feeds.example/rss", d), feed, "a feed comes back as raw XML, not stripped text");
+    await assert.rejects(fetchRawText("https://feeds.example/pdf", deps({ pages: { "https://feeds.example/pdf": { status: 200, headers: { "content-type": "application/pdf" }, body: "%PDF" } } })), /xml|text/i);
+    const priv = deps({ resolve: async () => ["10.0.0.9"] });
+    await assert.rejects(fetchRawText("https://internal.example/rss", priv), /not allowed|private/i);
+    assert.equal(priv.calls.length, 0);
+  }
+  {
+    const seen: { url: string; method?: string; body?: string }[] = [];
+    const ok: FetchDeps = {
+      resolve: publicResolve,
+      fetch: async (url, init) => {
+        seen.push({ url: String(url), method: init.method, body: init.body });
+        return new Response("ok", { status: 200 });
+      },
+    };
+    const r = await safePostJson("https://hooks.example/x", { text: "hello" }, ok);
+    assert.deepEqual(r, { ok: true, status: 200 });
+    assert.equal(seen[0]!.method, "POST");
+    assert.equal(seen[0]!.body, JSON.stringify({ text: "hello" }));
+    // http, private addresses and odd schemes are refused before any request
+    for (const bad of ["http://hooks.example/x", "https://127.0.0.1/x", "https://user:pw@hooks.example/x", "ftp://hooks.example/x", "nonsense"]) {
+      const calls: string[] = [];
+      const d: FetchDeps = {
+        resolve: async (h) => (h === "127.0.0.1" ? ["127.0.0.1"] : ["93.184.216.34"]),
+        fetch: async (u) => {
+          calls.push(String(u));
+          return new Response("", { status: 200 });
+        },
+      };
+      await assert.rejects(safePostJson(bad, {}, d), /not allowed|not valid|https/i, bad);
+      assert.equal(calls.length, 0, "no request for " + bad);
+    }
+    const toPrivate: FetchDeps = { resolve: async () => ["169.254.169.254"], fetch: async () => new Response("", { status: 200 }) };
+    await assert.rejects(safePostJson("https://metadata.example/x", {}, toPrivate), /not allowed|private/i);
+    // redirects are never followed (a webhook must not bounce us somewhere else)
+    const redirect: FetchDeps = { resolve: publicResolve, fetch: async () => new Response("", { status: 302, headers: { location: "https://10.0.0.1/" } }) };
+    assert.deepEqual(await safePostJson("https://hooks.example/x", {}, redirect), { ok: false, status: 302 });
+    // a failing endpoint is reported, not thrown
+    const down: FetchDeps = { resolve: publicResolve, fetch: async () => new Response("no", { status: 500 }) };
+    assert.deepEqual(await safePostJson("https://hooks.example/x", {}, down), { ok: false, status: 500 });
+    const boom: FetchDeps = {
+      resolve: publicResolve,
+      fetch: async () => {
+        throw new Error("ECONNRESET");
+      },
+    };
+    assert.deepEqual(await safePostJson("https://hooks.example/x", {}, boom), { ok: false, status: 0 });
+  }
 
   process.stdout.write("✓ web text tests PASSED\n");
 }

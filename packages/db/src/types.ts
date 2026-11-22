@@ -414,6 +414,102 @@ export type CompetitorCandidate = {
   created_at: string;
 };
 
+export type TrendWatchStatus = "active" | "paused" | "budget_paused";
+export type TrendWatch = {
+  id: string;
+  org_id: string;
+  brand_id: string;
+  name: string;
+  description: string | null;
+  keywords: string[];
+  excludes: string[];
+  sources: string[];
+  rss_feeds: string[];
+  region: string;
+  lookback_hours: number;
+  relevance_threshold: number;
+  frequency_minutes: 30 | 60 | 120 | 240 | 720 | 1440;
+  monthly_budget_credits: number;
+  status: TrendWatchStatus;
+  spent_credits_month: number;
+  month_key: string;
+  next_run_at: string;
+  last_run_at: string | null;
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type TrendWatchRun = {
+  id: string;
+  org_id: string;
+  watch_id: string;
+  job_id: string | null;
+  status: "running" | "done" | "failed" | "skipped";
+  trigger: "schedule" | "manual";
+  source_status: Record<string, { ok: boolean; items?: number; reason?: string }>;
+  found: number;
+  new_items: number;
+  kept: number;
+  alerts: number;
+  credits_spent: number;
+  error_message: string | null;
+  started_at: string;
+  finished_at: string | null;
+};
+
+export type TrendEvent = {
+  id: string;
+  org_id: string;
+  brand_id: string;
+  watch_id: string;
+  kind: "story" | "spike";
+  title: string;
+  summary: string | null;
+  primary_url: string | null;
+  source_count: number;
+  relevance_score: number;
+  sentiment: "positive" | "negative" | "neutral" | "mixed";
+  positive_aspects: string | null;
+  negative_aspects: string | null;
+  importance: "low" | "medium" | "high";
+  topic: string | null;
+  why_it_matters: string | null;
+  is_alert: boolean;
+  embedding: number[];
+  first_seen_at: string;
+  last_seen_at: string;
+  created_at: string;
+};
+
+export type TrendRule = {
+  id: string;
+  org_id: string;
+  watch_id: string | null;
+  name: string;
+  min_relevance: number;
+  min_importance: "low" | "medium" | "high";
+  sentiments: string[];
+  channel: "in_app" | "slack" | "webhook";
+  target: string | null;
+  digest: "immediate" | "daily" | "weekly";
+  enabled: boolean;
+  created_by: string | null;
+  created_at: string;
+};
+
+export type NotificationRow = {
+  id: string;
+  org_id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  body: string | null;
+  link: string | null;
+  read_at: string | null;
+  created_at: string;
+};
+
 export type Database = {
   public: {
     Tables: {
@@ -933,6 +1029,80 @@ export type Database = {
         Update: Partial<CompetitorCandidate>;
         Relationships: [];
       };
+      trend_watches: {
+        Row: TrendWatch;
+        Insert: {
+          org_id: string;
+          brand_id: string;
+          name: string;
+          keywords: string[];
+          description?: string | null;
+          excludes?: string[];
+          sources?: string[];
+          rss_feeds?: string[];
+          region?: string;
+          lookback_hours?: number;
+          relevance_threshold?: number;
+          frequency_minutes?: TrendWatch["frequency_minutes"];
+          monthly_budget_credits?: number;
+          status?: "active" | "paused";
+        };
+        Update: Partial<TrendWatch>;
+        Relationships: [];
+      };
+      trend_watch_runs: {
+        Row: TrendWatchRun;
+        Insert: { org_id: string; watch_id: string; job_id?: string | null; status?: TrendWatchRun["status"]; trigger?: TrendWatchRun["trigger"] };
+        Update: Partial<TrendWatchRun>;
+        Relationships: [];
+      };
+      trend_events: {
+        Row: TrendEvent;
+        Insert: Partial<TrendEvent> & { org_id: string; brand_id: string; watch_id: string; title: string; relevance_score: number };
+        Update: Partial<TrendEvent>;
+        Relationships: [];
+      };
+      trend_mentions: {
+        Row: { id: string; org_id: string; watch_id: string; run_id: string; event_id: string | null; source: string; title: string; snippet: string | null; url: string | null; url_hash: string; published_at: string | null; created_at: string };
+        Insert: { org_id: string; watch_id: string; run_id: string; event_id?: string | null; source: string; title: string; snippet?: string | null; url?: string | null; url_hash: string; published_at?: string | null };
+        Update: { event_id?: string | null };
+        Relationships: [];
+      };
+      trend_stats_daily: {
+        Row: { org_id: string; watch_id: string; day: string; mention_count: number; mean_7d: number | null; stddev_7d: number | null; created_at: string };
+        Insert: { org_id: string; watch_id: string; day: string; mention_count?: number; mean_7d?: number | null; stddev_7d?: number | null };
+        Update: { mention_count?: number; mean_7d?: number | null; stddev_7d?: number | null };
+        Relationships: [];
+      };
+      trend_rules: {
+        Row: TrendRule;
+        Insert: {
+          org_id: string;
+          name: string;
+          channel: TrendRule["channel"];
+          watch_id?: string | null;
+          min_relevance?: number;
+          min_importance?: TrendRule["min_importance"];
+          sentiments?: string[];
+          target?: string | null;
+          digest?: TrendRule["digest"];
+          enabled?: boolean;
+        };
+        Update: Partial<TrendRule>;
+        Relationships: [];
+      };
+      trend_deliveries: {
+        Row: { id: string; org_id: string; event_id: string; rule_id: string; channel: string; status: "sent" | "failed" | "queued_digest"; error: string | null; sent_at: string | null; created_at: string };
+        Insert: { org_id: string; event_id: string; rule_id: string; channel: string; status: "sent" | "failed" | "queued_digest"; error?: string | null; sent_at?: string | null };
+        Update: { status?: "sent" | "failed" | "queued_digest"; error?: string | null; sent_at?: string | null };
+        Relationships: [];
+      };
+      notifications: {
+        Row: NotificationRow;
+        Insert: { org_id: string; user_id: string; type: string; title: string; body?: string | null; link?: string | null };
+        Update: { read_at?: string | null };
+        Relationships: [];
+      };
     };
     Views: {
       credit_balance: {
@@ -941,6 +1111,15 @@ export type Database = {
       };
     };
     Functions: {
+      start_watch_run: {
+        Args: { p_watch: string; p_trigger: string; p_user?: string | null };
+        Returns: { job_id: string | null; run_id: string | null; org_id: string | null; refused: string | null }[];
+      };
+      claim_due_watches: {
+        Args: { p_limit?: number };
+        Returns: { job_id: string; run_id: string; watch_id: string; org_id: string }[];
+      };
+      record_watch_spend: { Args: { p_watch: string; p_credits: number }; Returns: string };
       start_content_job: {
         Args: { p_kind: string; p_org: string; p_brand: string; p_user: string | null; p_input?: Json };
         Returns: { job_id: string; row_id: string }[];
