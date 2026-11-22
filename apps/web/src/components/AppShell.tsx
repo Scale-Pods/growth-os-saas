@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { PermissionsProvider } from "./Permissions";
+import { ToastProvider } from "./ui/Toast";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
 import type { Organization, Brand, Profile, OrgRole } from "@growth-os/db";
@@ -30,7 +32,16 @@ export function AppShell({
 }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setMobileOpen(false);
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [mobileOpen]);
+
   return (
+    <PermissionsProvider role={userRole} features={features}>
+    <ToastProvider>
     <div className="min-h-screen flex bg-background text-foreground transition-colors">
       {/* Sidebar */}
       <Sidebar
@@ -60,5 +71,7 @@ export function AppShell({
         </main>
       </div>
     </div>
+    </ToastProvider>
+    </PermissionsProvider>
   );
 }
