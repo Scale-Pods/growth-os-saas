@@ -189,10 +189,10 @@ export function PostComposer({ accounts, brandName }: PostComposerProps) {
                     key={account.id}
                     type="button"
                     onClick={() => toggleAccount(account.id)}
-                    className={`p-3 rounded-xl border flex items-center justify-between gap-2.5 text-left transition-all ${
+                    className={`p-3.5 rounded-2xl border flex items-center justify-between gap-2.5 text-left transition-all duration-150 ${
                       isSelected
-                        ? "border-primary bg-primary/10 shadow-sm"
-                        : "border-border/60 bg-panel/50 hover:bg-panel"
+                        ? "border-primary/60 bg-gradient-to-r from-primary/15 to-primary/5 shadow-sm ring-1 ring-primary/30"
+                        : "border-border/70 bg-panel/50 hover:bg-panel hover:border-border"
                     }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -201,16 +201,16 @@ export function PostComposer({ accounts, brandName }: PostComposerProps) {
                         <div className="text-xs font-bold text-foreground truncate">
                           {account.display_name}
                         </div>
-                        <div className="text-[10px] text-muted-foreground capitalize">
+                        <div className="text-[10px] text-muted-foreground capitalize font-medium">
                           {account.platform}
                         </div>
                       </div>
                     </div>
 
                     <div
-                      className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 ${
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-colors ${
                         isSelected
-                          ? "border-primary bg-primary text-background"
+                          ? "border-primary bg-primary text-ctaText shadow-sm"
                           : "border-border"
                       }`}
                     >

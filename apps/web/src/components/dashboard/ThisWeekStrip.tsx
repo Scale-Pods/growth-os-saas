@@ -82,10 +82,10 @@ export function ThisWeekStrip({ posts, accountsById }: ThisWeekStripProps) {
         {daysData.map((d) => (
           <div
             key={d.dateKey}
-            className={`p-2.5 sm:p-3 rounded-xl border flex flex-col items-center justify-between min-h-[110px] transition-all ${
+            className={`p-2.5 sm:p-3 rounded-2xl border flex flex-col items-center justify-between min-h-[114px] transition-all duration-200 ${
               d.isToday
-                ? "border-primary bg-primary/10 shadow-sm"
-                : "border-border/60 bg-panel/50 hover:bg-panel"
+                ? "border-primary/50 bg-gradient-to-b from-primary/15 to-primary/5 shadow-md ring-1 ring-primary/30"
+                : "border-border/70 bg-panel/60 hover:bg-panel hover:border-border"
             }`}
           >
             <div className="text-center">
@@ -96,16 +96,16 @@ export function ThisWeekStrip({ posts, accountsById }: ThisWeekStripProps) {
               >
                 {d.dayName}
               </div>
-              <div className="text-xs font-semibold text-foreground mt-0.5">
+              <div className="text-xs font-bold text-foreground mt-0.5">
                 {d.dateNumber}
               </div>
               {d.isToday && (
-                <span className="text-[9px] text-primary font-medium block">Today</span>
+                <span className="text-[9px] text-primary font-semibold block px-1.5 py-0.2 rounded-full bg-primary/20 mt-0.5">Today</span>
               )}
             </div>
 
             {d.posts.length > 0 ? (
-              <div className="w-full flex flex-col items-center gap-1">
+              <div className="w-full flex flex-col items-center gap-1.5">
                 <span className="text-xs font-bold text-foreground">
                   {d.posts.length}
                 </span>
@@ -123,7 +123,7 @@ export function ThisWeekStrip({ posts, accountsById }: ThisWeekStripProps) {
                 </div>
               </div>
             ) : (
-              <span className="text-[10px] text-muted-foreground/50">None</span>
+              <span className="text-[10px] text-muted-foreground/40 font-mono">--</span>
             )}
           </div>
         ))}

@@ -106,13 +106,13 @@ export function CalendarView({ posts, currentMonth }: CalendarViewProps) {
   const getChipStyle = (status: string) => {
     switch (status) {
       case "published":
-        return "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25";
+        return "bg-primary/15 text-primary border-primary/30 hover:bg-primary/25 shadow-sm";
       case "scheduled":
-        return "bg-secondary/15 text-secondary border-secondary/30 hover:bg-secondary/25";
+        return "bg-secondary/15 text-secondary border-secondary/30 hover:bg-secondary/25 shadow-sm";
       case "failed":
-        return "bg-destructive/15 text-destructive border-destructive/30 hover:bg-destructive/25";
+        return "bg-destructive/15 text-destructive border-destructive/30 hover:bg-destructive/25 shadow-sm";
       default:
-        return "bg-fill-tertiary text-muted-foreground border-border/60 hover:bg-fill-secondary";
+        return "bg-fill-tertiary text-muted-foreground border-border/70 hover:bg-fill-secondary";
     }
   };
 

@@ -49,16 +49,16 @@ export function RecentActivity({ posts, accountsById }: RecentActivityProps) {
             return (
               <div
                 key={post.id}
-                className="p-3 rounded-xl border border-border/60 bg-panel/60 hover:bg-panel transition-all flex items-center justify-between gap-3"
+                className="p-3.5 rounded-2xl border border-border/70 bg-gradient-to-r from-card to-card/90 hover:border-primary/40 hover:shadow-md transition-all flex items-center justify-between gap-3 group"
               >
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <PlatformBadge platform={account?.platform || "linkedin"} size="sm" />
-                    <span className="text-[11px] text-muted-foreground truncate">
+                    <span className="text-[11px] text-muted-foreground truncate font-medium">
                       {account?.display_name || "Channel"}
                     </span>
                   </div>
-                  <p className="text-xs font-medium text-foreground line-clamp-1">
+                  <p className="text-xs font-medium text-foreground line-clamp-1 group-hover:text-primary transition-colors">
                     {post.caption || "Untitled post"}
                   </p>
                   <span className="text-[10px] text-muted-foreground block mt-0.5">

@@ -247,7 +247,7 @@ export function ChannelsClient({
       </div>
 
       {/* Grid of Connect Buttons */}
-      <div className="card p-6 border border-border/60 space-y-4">
+      <div className="card p-6 border border-border/70 bg-gradient-to-b from-card to-card/90 shadow-md space-y-4">
         <div>
           <h3 className="text-sm font-bold text-foreground flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-primary" />
@@ -269,7 +269,7 @@ export function ChannelsClient({
                 type="button"
                 disabled={!targetBrandId || isConnecting}
                 onClick={() => targetBrandId && handleConnect(item.platform, targetBrandId)}
-                className="p-4 rounded-xl border border-border/60 bg-panel/60 hover:bg-panel hover:border-primary/40 transition-all flex flex-col items-center justify-center gap-2 text-center group disabled:opacity-50"
+                className="p-4 rounded-2xl border border-border/70 bg-panel/60 hover:bg-panel hover:border-primary/50 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col items-center justify-center gap-2 text-center group disabled:opacity-50"
               >
                 <PlatformBadge platform={item.platform} size="md" />
                 <span className="text-xs font-semibold text-foreground group-hover:text-primary transition-colors">

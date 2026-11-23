@@ -96,7 +96,7 @@ export function TheSevenStepLoop() {
             return (
               <div
                 key={step.number}
-                className="group relative flex flex-col justify-between p-5 rounded-2xl border border-border/60 bg-card/60 backdrop-blur-sm hover:border-primary/40 hover:bg-card/90 transition-all shadow-sm"
+                className="group relative flex flex-col justify-between p-5 rounded-2xl border border-border/80 bg-gradient-to-b from-card to-card/90 backdrop-blur-sm hover:border-primary/50 hover:shadow-lg hover:-translate-y-1 transition-all duration-200 shadow-sm"
               >
                 {/* Step Top */}
                 <div>
@@ -104,7 +104,7 @@ export function TheSevenStepLoop() {
                     <span className="text-xs font-mono font-bold text-muted-foreground/80 group-hover:text-primary transition-colors">
                       {step.number}
                     </span>
-                    <div className="w-8 h-8 rounded-lg bg-fill-tertiary border border-glass-border flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                    <div className="w-9 h-9 rounded-xl bg-panel border border-border/70 flex items-center justify-center text-primary group-hover:scale-110 group-hover:border-primary/40 group-hover:bg-primary/10 transition-all shadow-inner">
                       <Icon className="w-4 h-4" />
                     </div>
                   </div>
@@ -112,7 +112,7 @@ export function TheSevenStepLoop() {
                   <h3 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
                     {step.name}
                   </h3>
-                  <div className="text-[11px] font-medium text-secondary mb-2">
+                  <div className="text-[11px] font-semibold text-secondary mb-2">
                     {step.label}
                   </div>
                   <p className="text-xs text-muted-foreground leading-relaxed">
@@ -122,7 +122,7 @@ export function TheSevenStepLoop() {
 
                 {/* Arrow indicator for desktop */}
                 {!isLast && (
-                  <div className="hidden lg:block absolute -right-2 top-1/2 -translate-y-1/2 z-10 text-muted-foreground/40 group-hover:text-primary transition-colors pointer-events-none">
+                  <div className="hidden lg:block absolute -right-2 top-1/2 -translate-y-1/2 z-10 text-muted-foreground/30 group-hover:text-primary transition-colors pointer-events-none">
                     <ArrowRight className="w-3.5 h-3.5" />
                   </div>
                 )}

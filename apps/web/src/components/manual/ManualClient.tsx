@@ -307,12 +307,12 @@ export function ManualClient() {
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-12">
       {/* Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-border/60 pb-3">
+      <div className="flex items-center gap-2 border-b border-border/60 pb-3 overflow-x-auto">
         <button
           onClick={() => setActiveTab("sidebar")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-medium transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${
             activeTab === "sidebar"
-              ? "bg-primary text-background font-semibold shadow-sm"
+              ? "bg-primary text-ctaText shadow-sm shadow-primary/20 scale-[1.02]"
               : "text-muted-foreground hover:text-foreground hover:bg-fill-tertiary"
           }`}
         >
@@ -322,9 +322,9 @@ export function ManualClient() {
 
         <button
           onClick={() => setActiveTab("lifecycle")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-medium transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${
             activeTab === "lifecycle"
-              ? "bg-primary text-background font-semibold shadow-sm"
+              ? "bg-primary text-ctaText shadow-sm shadow-primary/20 scale-[1.02]"
               : "text-muted-foreground hover:text-foreground hover:bg-fill-tertiary"
           }`}
         >
@@ -334,9 +334,9 @@ export function ManualClient() {
 
         <button
           onClick={() => setActiveTab("glossary")}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-medium transition-colors ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all whitespace-nowrap ${
             activeTab === "glossary"
-              ? "bg-primary text-background font-semibold shadow-sm"
+              ? "bg-primary text-ctaText shadow-sm shadow-primary/20 scale-[1.02]"
               : "text-muted-foreground hover:text-foreground hover:bg-fill-tertiary"
           }`}
         >

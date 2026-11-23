@@ -44,14 +44,14 @@ export function TopBar({
           <Menu className="w-5 h-5" />
         </button>
 
-        <div className="hidden sm:flex items-center gap-2 text-xs">
-          <span className="font-semibold text-foreground truncate max-w-[140px] sm:max-w-[200px]">
+        <div className="hidden sm:flex items-center gap-2 text-xs px-3 py-1.5 rounded-xl bg-panel/70 border border-border/50 shadow-sm">
+          <span className="font-bold text-foreground truncate max-w-[140px] sm:max-w-[200px]">
             {currentOrg.name}
           </span>
           {currentBrand && (
             <>
-              <span className="text-muted-foreground">/</span>
-              <span className="text-muted-foreground truncate max-w-[120px] sm:max-w-[180px]">
+              <span className="text-muted-foreground/60">/</span>
+              <span className="text-secondary font-medium truncate max-w-[120px] sm:max-w-[180px]">
                 {currentBrand.name}
               </span>
             </>
@@ -71,7 +71,7 @@ export function TopBar({
 
         {/* User Capsule */}
         <div className="flex items-center gap-2.5 pl-2 border-l border-border/60">
-          <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 text-primary font-bold text-xs flex items-center justify-center flex-shrink-0 shadow-sm">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-primary/20 to-primary/40 border border-primary/40 text-primary font-bold text-xs flex items-center justify-center flex-shrink-0 shadow-sm">
             {initials}
           </div>
 

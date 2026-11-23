@@ -29,32 +29,34 @@ export default async function SettingsPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-3xl mx-auto mb-6">
         <Link
           href="/settings/team"
-          className="card p-5 hover:border-primary/40 transition-all flex items-start gap-4 group"
+          className="card p-6 hover:border-primary/50 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex items-start gap-4 group bg-gradient-to-b from-card to-card/90"
         >
-          <div className="w-10 h-10 rounded-xl bg-fill-tertiary flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/25 flex items-center justify-center text-primary group-hover:scale-110 transition-transform shadow-inner shrink-0">
             <Users className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-foreground group-hover:text-primary transition-colors">
-              Team & access &rarr;
+            <h3 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors flex items-center gap-1.5">
+              <span>Team & access</span>
+              <span className="text-xs">&rarr;</span>
             </h3>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
               Invite teammates, manage roles, and review pending invitations.
             </p>
           </div>
         </Link>
         <Link
           href="/settings/platform"
-          className="card p-5 hover:border-primary/40 transition-all flex items-start gap-4 group"
+          className="card p-6 hover:border-secondary/50 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 flex items-start gap-4 group bg-gradient-to-b from-card to-card/90"
         >
-          <div className="w-10 h-10 rounded-xl bg-fill-tertiary flex items-center justify-center text-secondary group-hover:scale-105 transition-transform">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-secondary/20 to-secondary/5 border border-secondary/25 flex items-center justify-center text-secondary group-hover:scale-110 transition-transform shadow-inner shrink-0">
             <Activity className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-sm font-semibold text-foreground group-hover:text-secondary transition-colors">
-              Platform status &rarr;
+            <h3 className="text-sm font-bold text-foreground group-hover:text-secondary transition-colors flex items-center gap-1.5">
+              <span>Platform status</span>
+              <span className="text-xs">&rarr;</span>
             </h3>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
               View system diagnostics, database connectivity, and health metrics.
             </p>
           </div>

@@ -193,14 +193,14 @@ export function PublishingConsole({ posts }: PublishingConsoleProps) {
               <div
                 key={post.id}
                 onClick={() => setSelectedPost(post)}
-                className="card p-4 hover:border-primary/40 transition-all cursor-pointer flex flex-col justify-between group space-y-4"
+                className="card p-5 hover:border-primary/40 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200 cursor-pointer flex flex-col justify-between group space-y-4 bg-gradient-to-b from-card to-card/90"
               >
-                <div className="space-y-3">
+                <div className="space-y-3.5">
                   {/* Top Bar: Platform & Status */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
                       <PlatformBadge platform={post.account?.platform || "linkedin"} size="sm" />
-                      <span className="text-xs font-semibold text-foreground truncate">
+                      <span className="text-xs font-bold text-foreground truncate">
                         {post.account?.display_name || "Channel"}
                       </span>
                     </div>
@@ -208,35 +208,35 @@ export function PublishingConsole({ posts }: PublishingConsoleProps) {
                   </div>
 
                   {/* Image Placeholder */}
-                  <div className="w-full h-36 rounded-xl bg-panel border border-border/60 flex items-center justify-center text-muted-foreground relative overflow-hidden group-hover:border-border transition-colors">
+                  <div className="w-full h-36 rounded-xl bg-panel/70 border border-border/70 flex items-center justify-center text-muted-foreground relative overflow-hidden group-hover:border-primary/30 transition-all shadow-inner">
                     {hasMedia ? (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2 text-xs text-foreground font-medium">
                         <ImageIcon className="w-5 h-5 text-primary" />
                         <span>{post.media.length} attached {post.media.length === 1 ? "asset" : "assets"}</span>
                       </div>
                     ) : (
                       <div className="flex flex-col items-center gap-1.5 text-xs text-muted-foreground/60">
-                        <ImageIcon className="w-6 h-6" />
-                        <span>Text Post</span>
+                        <ImageIcon className="w-6 h-6 text-muted-foreground/40" />
+                        <span className="font-medium text-[11px]">Text Post</span>
                       </div>
                     )}
                   </div>
 
                   {/* Caption snippet */}
-                  <p className="text-xs text-foreground/90 line-clamp-3 leading-relaxed">
+                  <p className="text-xs text-foreground/90 line-clamp-3 leading-relaxed group-hover:text-foreground transition-colors">
                     {post.caption || "No caption text"}
                   </p>
                 </div>
 
                 {/* Footer Time & Error hint */}
-                <div className="pt-2 border-t border-border/40 flex items-center justify-between text-[11px] text-muted-foreground">
-                  <div className="flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5" />
+                <div className="pt-2.5 border-t border-border/40 flex items-center justify-between text-[11px] text-muted-foreground font-mono">
+                  <div className="flex items-center gap-1.5 font-sans">
+                    <Clock className="w-3.5 h-3.5 text-muted-foreground/70" />
                     <span>{formattedTime}</span>
                   </div>
 
                   {post.status === "failed" && (
-                    <span className="text-destructive font-semibold flex items-center gap-1">
+                    <span className="text-destructive font-semibold flex items-center gap-1 font-sans">
                       <AlertCircle className="w-3 h-3" />
                       Failed
                     </span>

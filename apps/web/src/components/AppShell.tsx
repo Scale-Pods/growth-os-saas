@@ -66,7 +66,9 @@ export function AppShell({
           onMobileOpen={() => setMobileOpen(true)}
         />
 
-        <main className="flex-1 max-w-[1680px] w-full mx-auto p-4 md:p-8 space-y-8">
+        <main className="flex-1 max-w-[1680px] w-full mx-auto p-4 md:p-8 space-y-8 relative">
+          <div className="absolute top-0 right-1/4 w-[500px] h-[300px] bg-primary/5 rounded-full blur-[140px] pointer-events-none -z-10" />
+          <div className="absolute top-1/3 left-10 w-[350px] h-[250px] bg-secondary/5 rounded-full blur-[120px] pointer-events-none -z-10" />
           {children}
         </main>
       </div>

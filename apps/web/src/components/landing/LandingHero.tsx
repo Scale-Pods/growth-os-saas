@@ -10,7 +10,7 @@ export function LandingHero() {
 
       <div className="relative max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
         {/* Status Pill */}
-        <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border border-primary/25 bg-primary/10 text-primary text-xs font-medium mb-8">
+        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs font-medium mb-8 shadow-sm backdrop-blur-sm ring-1 ring-primary/20">
           <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
           <span>Continuous Growth OS • The 7-Step Marketing Loop</span>
         </div>
@@ -32,14 +32,14 @@ export function LandingHero() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-md mx-auto mb-14">
           <Link
             href="/signup"
-            className="w-full sm:w-auto btn-primary inline-flex items-center justify-center gap-2 text-sm md:text-base font-semibold px-7 py-3 rounded-xl shadow-md hover:opacity-90 transition-opacity"
+            className="w-full sm:w-auto btn-primary inline-flex items-center justify-center gap-2 text-sm md:text-base font-semibold px-7 py-3 rounded-xl shadow-lg hover:shadow-primary/20 transition-all"
           >
             <span>Create workspace</span>
             <ArrowRight className="w-4 h-4" />
           </Link>
           <Link
             href="/login"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-sm md:text-base font-medium px-7 py-3 rounded-xl border border-border bg-panel text-foreground hover:bg-fill-secondary transition-colors"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 text-sm md:text-base font-medium px-7 py-3 rounded-xl border border-border/80 bg-panel/80 hover:bg-panel hover:border-primary/40 text-foreground transition-all shadow-sm"
           >
             Sign in
           </Link>
@@ -47,7 +47,7 @@ export function LandingHero() {
 
         {/* Technical Value Badges */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto pt-6 border-t border-border/40 text-left">
-          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-card/60 border border-border/50">
+          <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-card/70 border border-border/60 hover:border-primary/40 hover:bg-card transition-all shadow-sm">
             <Cpu className="w-5 h-5 text-primary shrink-0 mt-0.5" />
             <div>
               <div className="text-xs font-semibold text-foreground">Multi-Modal AI Studio</div>
@@ -55,7 +55,7 @@ export function LandingHero() {
             </div>
           </div>
 
-          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-card/60 border border-border/50">
+          <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-card/70 border border-border/60 hover:border-secondary/40 hover:bg-card transition-all shadow-sm">
             <ShieldCheck className="w-5 h-5 text-secondary shrink-0 mt-0.5" />
             <div>
               <div className="text-xs font-semibold text-foreground">Isolated Tenancy & RLS</div>
@@ -63,7 +63,7 @@ export function LandingHero() {
             </div>
           </div>
 
-          <div className="flex items-start gap-3 p-3.5 rounded-xl bg-card/60 border border-border/50">
+          <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-card/70 border border-border/60 hover:border-destructive/40 hover:bg-card transition-all shadow-sm">
             <Layers className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
             <div>
               <div className="text-xs font-semibold text-foreground">Automated Publishing</div>

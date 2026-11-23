@@ -48,15 +48,15 @@ export function ConnectedPlatforms({ accounts }: ConnectedPlatformsProps) {
             return (
               <div
                 key={account.id}
-                className="p-3 rounded-xl border border-border/60 bg-panel/60 hover:bg-panel transition-all flex items-center justify-between gap-3"
+                className="p-3.5 rounded-2xl border border-border/70 bg-gradient-to-r from-card to-card/90 hover:border-primary/40 hover:shadow-md transition-all flex items-center justify-between gap-3"
               >
                 <div className="flex items-center gap-3 min-w-0">
                   <PlatformBadge platform={account.platform} size="sm" />
                   <div className="truncate">
-                    <div className="text-xs font-semibold text-foreground truncate">
+                    <div className="text-xs font-bold text-foreground truncate">
                       {account.display_name}
                     </div>
-                    <div className="text-[10px] text-muted-foreground capitalize">
+                    <div className="text-[10px] text-muted-foreground capitalize font-medium">
                       {account.platform}
                     </div>
                   </div>
@@ -65,6 +65,7 @@ export function ConnectedPlatforms({ accounts }: ConnectedPlatformsProps) {
                 <div className="shrink-0">
                   {isActive && (
                     <Badge tone="green" className="text-[10px] px-2 py-0.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                       Active
                     </Badge>
                   )}

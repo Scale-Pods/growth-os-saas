@@ -81,14 +81,14 @@ export function FeatureCards() {
             return (
               <div
                 key={feature.title}
-                className="card p-8 flex flex-col justify-between hover:border-primary/40 transition-all group"
+                className="card p-8 flex flex-col justify-between hover:border-primary/40 hover:shadow-xl hover:-translate-y-1 transition-all duration-200 group bg-gradient-to-b from-card to-card/90"
               >
                 <div>
                   <div className="flex items-center justify-between mb-6">
-                    <div className={`w-12 h-12 rounded-xl border flex items-center justify-center ${accentColor}`}>
+                    <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center shadow-inner ${accentColor}`}>
                       <Icon className="w-6 h-6" />
                     </div>
-                    <span className="text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-fill-tertiary text-muted-foreground border border-border/50">
+                    <span className="text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-panel text-muted-foreground border border-border/70">
                       {feature.tag}
                     </span>
                   </div>
@@ -102,10 +102,10 @@ export function FeatureCards() {
                   </p>
                 </div>
 
-                <ul className="space-y-2.5 pt-6 border-t border-border/40">
+                <ul className="space-y-3 pt-6 border-t border-border/40">
                   {feature.highlights.map((highlight, idx) => (
                     <li key={idx} className="flex items-start gap-2.5 text-xs text-foreground/80">
-                      <div className="w-4 h-4 rounded-full bg-fill-secondary flex items-center justify-center shrink-0 mt-0.5 text-primary">
+                      <div className="w-4 h-4 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0 mt-0.5 text-primary">
                         <Check className="w-3 h-3" />
                       </div>
                       <span>{highlight}</span>
