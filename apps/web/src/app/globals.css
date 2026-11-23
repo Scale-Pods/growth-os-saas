@@ -65,34 +65,34 @@
   --bg-card: #FFFFFF;
   --bg-panel: #EEF3EA;
   --bg-layer3: #E4EBDD;
-  --accent-green: #8FBC6A;
-  --accent-blue: #408CD6;
-  --accent-orange: #CC6B49;
+  --accent-green: #3E6B23;
+  --accent-blue: #236DBB;
+  --accent-orange: #C0522B;
   --alt-bg-green: #E7F0DF;
 
   --bg-page-rgb: 248 250 247;
   --bg-card-rgb: 255 255 255;
   --bg-panel-rgb: 238 243 234;
-  --accent-green-rgb: 143 188 106;
-  --accent-blue-rgb: 64 140 214;
-  --accent-orange-rgb: 204 107 73;
+  --accent-green-rgb: 62 107 35;
+  --accent-blue-rgb: 35 109 187;
+  --accent-orange-rgb: 192 82 43;
   --alt-bg-green-rgb: 231 240 223;
 
   --text-primary-rgb: 4 7 13;
-  --text-primary: rgba(4, 7, 13, 0.88);
-  --text-secondary: rgba(4, 7, 13, 0.6);
-  --text-muted: rgba(4, 7, 13, 0.36);
-  --text-quaternary: rgba(4, 7, 13, 0.16);
+  --text-primary: rgba(4, 7, 13, 0.92);
+  --text-secondary: rgba(4, 7, 13, 0.68);
+  --text-muted: rgba(4, 7, 13, 0.48);
+  --text-quaternary: rgba(4, 7, 13, 0.22);
 
-  --border-subtle: rgba(4, 7, 13, 0.08);
+  --border-subtle: rgba(4, 7, 13, 0.12);
   --fill-primary: rgba(4, 7, 13, 0.08);
   --fill-secondary: rgba(4, 7, 13, 0.06);
   --fill-tertiary: rgba(4, 7, 13, 0.045);
   --fill-quaternary: rgba(4, 7, 13, 0.03);
 
-  --glass-fill: rgba(255, 255, 255, 0.72);
-  --glass-fill-hover: rgba(255, 255, 255, 0.88);
-  --glass-border: rgba(255, 255, 255, 0.9);
+  --glass-fill: rgba(255, 255, 255, 0.88);
+  --glass-fill-hover: rgba(255, 255, 255, 0.96);
+  --glass-border: rgba(4, 7, 13, 0.12);
   --glass-shadow: 0 1px 2px rgba(4,7,13,.04), 0 4px 8px rgba(4,7,13,.06), 0 16px 32px rgba(4,7,13,.08), inset 0 1px 0 rgba(255,255,255,1);
   --glass-shadow-hover: 0 2px 4px rgba(4,7,13,.06), 0 8px 16px rgba(4,7,13,.09), 0 28px 48px rgba(4,7,13,.12), inset 0 1px 0 rgba(255,255,255,1);
 

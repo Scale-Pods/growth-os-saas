@@ -1,8 +1,9 @@
 "use client";
 
-import { Menu, Bell, ShieldCheck, LogOut } from "lucide-react";
+import { Menu, ShieldCheck, LogOut } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { CreditsPill } from "./CreditsPill";
+import { NotificationBell } from "./NotificationBell";
 import { logout } from "@/app/auth/actions";
 import type { Organization, Brand, Profile, OrgRole } from "@growth-os/db";
 
@@ -63,13 +64,7 @@ export function TopBar({
         <CreditsPill />
 
         {/* Notifications Bell */}
-        <button
-          title="Notifications"
-          className="relative w-9 h-9 rounded-lg flex items-center justify-center border border-border/80 bg-panel text-muted-foreground hover:text-foreground hover:bg-fill-secondary transition-all"
-        >
-          <Bell className="w-4 h-4" />
-          <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-destructive animate-pulse" />
-        </button>
+        <NotificationBell notifications={[]} onMarkAllRead={() => {}} />
 
         {/* Theme Toggle */}
         <ThemeToggle />
