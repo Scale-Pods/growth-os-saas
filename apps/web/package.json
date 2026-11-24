@@ -14,10 +14,12 @@
     "@aws-sdk/s3-request-presigner": "^3.1175.0",
     "@growth-os/db": "workspace:*",
     "@growth-os/shared": "workspace:*",
+    "@growth-os/social": "workspace:*",
     "@growth-os/ui": "workspace:*",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.119.0",
     "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
     "lucide-react": "^0.441.0",
     "next": "^15.5.29",
     "pg-boss": "^12.38.2",
@@ -25,8 +27,7 @@
     "react-dom": "^19.3.1",
     "server-only": "^0.0.1",
     "tailwind-merge": "^2.6.0",
-    "zod": "^3.25.76",
-    "@growth-os/social": "workspace:*"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/node": "^20.17.17",

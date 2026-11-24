@@ -12,11 +12,8 @@ import {
   CheckCircle2,
   ArrowRight,
   ArrowLeft,
-  ShieldCheck,
   Check,
   AlertCircle,
-  Eye,
-  Layers,
   Wand2,
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
@@ -42,7 +39,7 @@ export function OnboardingWizard({
   organization,
   brand,
   initialState,
-  userEmail,
+  userEmail: _userEmail,
 }: OnboardingWizardProps) {
   const router = useRouter();
   const [currentStep, setCurrentStep] = useState<number>(initialState.step || 1);
@@ -194,48 +191,52 @@ export function OnboardingWizard({
   ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between p-4 sm:p-8 selection:bg-primary/20 selection:text-primary">
+    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between p-4 sm:p-8 selection:bg-primary/20 selection:text-primary relative overflow-hidden">
+      {/* Ambient background glow */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-primary/10 blur-[130px] rounded-full pointer-events-none -z-10" />
+
       {/* Top Header */}
-      <div className="max-w-4xl w-full mx-auto flex items-center justify-between pb-6 border-b border-border/40">
+      <div className="max-w-4xl w-full mx-auto flex items-center justify-between pb-6 border-b border-border/60">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-primary/20 border border-primary/30 text-primary flex items-center justify-center font-bold text-sm">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary/25 to-primary/5 border border-primary/30 text-primary flex items-center justify-center font-bold text-sm shadow-sm ring-1 ring-primary/20">
             S
           </div>
           <div>
             <span className="font-bold tracking-tight text-foreground text-sm flex items-center gap-1.5">
-              ScalePods <span className="text-primary italic font-serif text-xs">Growth OS</span>
+              ScalePods <span className="text-primary italic font-serif text-sm">Growth OS</span>
             </span>
-            <span className="text-[11px] text-muted-foreground block">Onboarding Wizard · Step {currentStep} of 6</span>
+            <span className="text-[11px] text-muted-foreground block">Onboarding Setup · Step {currentStep} of 6</span>
           </div>
         </div>
 
-        <div className="text-xs text-muted-foreground hidden sm:block">
-          Workspace: <strong className="text-foreground">{organization.name}</strong>
+        <div className="text-xs text-muted-foreground hidden sm:flex items-center gap-2">
+          <span>Workspace:</span>
+          <span className="px-2.5 py-1 rounded-md bg-panel border border-border/80 font-semibold text-foreground">{organization.name}</span>
         </div>
       </div>
 
       {/* Step Progress Tracker */}
       <div className="max-w-4xl w-full mx-auto my-6">
-        <div className="grid grid-cols-6 gap-2">
+        <div className="grid grid-cols-6 gap-2.5">
           {stepsList.map((s) => {
             const isCompleted = s.num < currentStep;
             const isCurrent = s.num === currentStep;
             return (
-              <div key={s.num} className="space-y-1.5">
+              <div key={s.num} className="space-y-2">
                 <div
                   className={clsx(
                     "h-1.5 rounded-full transition-all duration-300",
                     isCompleted
-                      ? "bg-primary"
+                      ? "bg-primary shadow-[0_0_8px_rgba(177,217,151,0.4)]"
                       : isCurrent
-                      ? "bg-primary/80 animate-pulse"
+                      ? "bg-gradient-to-r from-primary to-primary/70 animate-pulse shadow-[0_0_12px_rgba(177,217,151,0.6)]"
                       : "bg-fill-tertiary"
                   )}
                 />
                 <span
                   className={clsx(
-                    "text-[10px] hidden md:block truncate",
-                    isCurrent ? "text-primary font-bold" : "text-muted-foreground"
+                    "text-[10px] hidden md:block truncate transition-colors",
+                    isCurrent ? "text-primary font-bold" : isCompleted ? "text-foreground/80 font-medium" : "text-muted-foreground"
                   )}
                 >
                   {s.title}
@@ -462,44 +463,50 @@ export function OnboardingWizard({
               </div>
 
               <div>
-                <label className="label mb-2 block font-semibold">Primary Palette Swatches</label>
+                <label className="label mb-2 block font-semibold text-foreground">Primary Palette Swatches</label>
                 <div className="grid grid-cols-3 gap-3">
-                  <div className="p-3 rounded-xl border border-border bg-panel space-y-1">
-                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">Primary / Accent</span>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={primaryColor}
-                        onChange={(e) => setPrimaryColor(e.target.value)}
-                        className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0"
-                      />
-                      <span className="text-xs font-mono uppercase">{primaryColor}</span>
+                  <div className="p-3.5 rounded-xl border border-border/80 bg-panel/70 backdrop-blur-sm space-y-2 hover:border-primary/40 transition-colors">
+                    <span className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Primary / Accent</span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-border shadow-inner">
+                        <input
+                          type="color"
+                          value={primaryColor}
+                          onChange={(e) => setPrimaryColor(e.target.value)}
+                          className="absolute -top-2 -left-2 w-12 h-12 cursor-pointer border-0"
+                        />
+                      </div>
+                      <span className="text-xs font-mono uppercase font-semibold text-foreground">{primaryColor}</span>
                     </div>
                   </div>
 
-                  <div className="p-3 rounded-xl border border-border bg-panel space-y-1">
-                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">Secondary</span>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={secondaryColor}
-                        onChange={(e) => setSecondaryColor(e.target.value)}
-                        className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0"
-                      />
-                      <span className="text-xs font-mono uppercase">{secondaryColor}</span>
+                  <div className="p-3.5 rounded-xl border border-border/80 bg-panel/70 backdrop-blur-sm space-y-2 hover:border-primary/40 transition-colors">
+                    <span className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Secondary</span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-border shadow-inner">
+                        <input
+                          type="color"
+                          value={secondaryColor}
+                          onChange={(e) => setSecondaryColor(e.target.value)}
+                          className="absolute -top-2 -left-2 w-12 h-12 cursor-pointer border-0"
+                        />
+                      </div>
+                      <span className="text-xs font-mono uppercase font-semibold text-foreground">{secondaryColor}</span>
                     </div>
                   </div>
 
-                  <div className="p-3 rounded-xl border border-border bg-panel space-y-1">
-                    <span className="text-[10px] text-muted-foreground uppercase font-semibold">Accent Warm</span>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={accentColor}
-                        onChange={(e) => setAccentColor(e.target.value)}
-                        className="w-8 h-8 rounded-lg cursor-pointer bg-transparent border-0"
-                      />
-                      <span className="text-xs font-mono uppercase">{accentColor}</span>
+                  <div className="p-3.5 rounded-xl border border-border/80 bg-panel/70 backdrop-blur-sm space-y-2 hover:border-primary/40 transition-colors">
+                    <span className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">Accent Warm</span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-border shadow-inner">
+                        <input
+                          type="color"
+                          value={accentColor}
+                          onChange={(e) => setAccentColor(e.target.value)}
+                          className="absolute -top-2 -left-2 w-12 h-12 cursor-pointer border-0"
+                        />
+                      </div>
+                      <span className="text-xs font-mono uppercase font-semibold text-foreground">{accentColor}</span>
                     </div>
                   </div>
                 </div>
@@ -588,6 +595,19 @@ export function OnboardingWizard({
                   value={bannedWords}
                   onChange={(e) => setBannedWords(e.target.value)}
                   className="input text-xs"
+                />
+              </div>
+
+              <div>
+                <label className="label mb-1.5 block font-semibold text-foreground">
+                  Approved Calls to Action (CTAs, One per line)
+                </label>
+                <textarea
+                  rows={2}
+                  value={approvedCtas}
+                  onChange={(e) => setApprovedCtas(e.target.value)}
+                  placeholder="Book a 15-min demo&#10;Try Growth OS free"
+                  className="input text-xs font-mono resize-none"
                 />
               </div>
 

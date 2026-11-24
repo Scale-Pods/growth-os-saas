@@ -25,6 +25,7 @@ import {
   Users,
   BookOpen,
   Activity,
+  Share2,
   Pin,
   PinOff,
   X,
@@ -93,6 +94,7 @@ const NAV_GROUPS: NavGroupConfig[] = [
       { key: "analytics", label: "Analytics", href: "/analytics", icon: BarChart3 },
       { key: "intelligence", label: "Intelligence", href: "/intelligence", icon: BrainCircuit },
       { key: "settings", label: "Settings", href: "/settings", icon: Settings },
+      { key: "channels", label: "Channels", href: "/settings/channels", icon: Share2 },
       { key: "team", label: "Team & access", href: "/settings/team", icon: Users },
       { key: "platform", label: "Platform", href: "/settings/platform", icon: Activity },
       { key: "manual", label: "User Manual", href: "/manual", icon: BookOpen },
@@ -144,7 +146,7 @@ export function Sidebar({
   const filteredGroups = NAV_GROUPS.map((group) => {
     const items = group.items.filter((item) => {
       if (item.key === "dashboard" || item.key === "manual") return true;
-      if (item.key === "team" || item.key === "settings" || item.key === "platform") {
+      if (item.key === "team" || item.key === "settings" || item.key === "platform" || item.key === "channels") {
         return userRole === "owner" || userRole === "admin";
       }
       const match = features.find((f) => f.feature === item.key);

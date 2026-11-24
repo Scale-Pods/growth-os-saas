@@ -2,11 +2,9 @@
 
 import { useState } from "react";
 import { LogoUpload } from "@/components/LogoUpload";
-import Link from "next/link";
 import { clsx } from "clsx";
 import {
   Building2,
-  Sparkles,
   Palette,
   Volume2,
   CheckCircle2,
@@ -20,12 +18,9 @@ import {
   Check,
   AlertCircle,
   Eye,
-  Type,
   ShieldCheck,
-  Share2,
 } from "lucide-react";
 import { Card } from "@/components/ui/Card";
-import { Panel } from "@/components/ui/Panel";
 import { Badge } from "@/components/ui/Badge";
 import { PlatformBadge } from "@/components/ui/PlatformBadge";
 import {
@@ -86,7 +81,7 @@ export function BrandManagementView({
   facts: initialFacts,
   pillars: initialPillars,
   competitors: initialCompetitors,
-  userRole,
+  userRole: _userRole,
 }: BrandManagementViewProps) {
   const [activeTab, setActiveTab] = useState<TabKey>("profile");
   const [previewPlatform, setPreviewPlatform] = useState<"linkedin" | "instagram">("linkedin");
@@ -305,14 +300,14 @@ export function BrandManagementView({
       )}
 
       {/* Brand Top Bar & Switcher Strip */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-card border border-border shadow-sm">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/20 border border-primary/30 text-primary flex items-center justify-center font-bold text-sm shadow-sm flex-shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-2xl bg-gradient-to-r from-card via-card to-card/90 border border-border/80 shadow-md backdrop-blur-sm">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-primary/30 to-primary/10 border border-primary/35 text-primary flex items-center justify-center font-bold text-base shadow-sm ring-1 ring-primary/20 flex-shrink-0">
             {currentBrand.name.charAt(0).toUpperCase()}
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-base font-bold text-foreground">
+            <div className="flex items-center gap-2.5">
+              <span className="text-base font-bold text-foreground tracking-tight">
                 {currentBrand.name}
               </span>
               <Badge tone="green">
@@ -322,7 +317,7 @@ export function BrandManagementView({
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
               Workspace: <span className="font-semibold text-foreground">{currentOrg.name}</span> · Plan:{" "}
-              <span className="capitalize text-primary font-mono text-[11px]">{currentOrg.plan_id}</span>
+              <span className="capitalize text-primary font-mono text-[11px] font-semibold">{currentOrg.plan_id}</span>
             </p>
           </div>
         </div>
@@ -333,7 +328,7 @@ export function BrandManagementView({
             <select
               value={currentBrand.id}
               onChange={(e) => switchBrandAction(e.target.value)}
-              className="px-3 py-1.5 rounded-lg border border-border bg-panel text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              className="px-3 py-1.5 rounded-xl border border-border/80 bg-panel text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary shadow-sm"
             >
               {brands.map((b) => (
                 <option key={b.id} value={b.id}>
@@ -345,7 +340,7 @@ export function BrandManagementView({
 
           <button
             onClick={() => setShowNewBrandModal(true)}
-            className="btn-ghost text-xs px-3 py-2 flex items-center gap-1.5"
+            className="btn-ghost text-xs px-3.5 py-2 flex items-center gap-1.5 border border-border/60 hover:border-primary/40 rounded-xl"
           >
             <Plus className="w-3.5 h-3.5 text-primary" />
             <span>Add Brand</span>
@@ -354,7 +349,7 @@ export function BrandManagementView({
       </div>
 
       {/* Tab Navigation Pill Bar */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin border-b border-border/40">
+      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin border-b border-border/50">
         {[
           { key: "profile", label: "Profile & Audience", icon: Building2 },
           { key: "kit", label: "Logo & Visual Kit", icon: Palette },
@@ -371,9 +366,9 @@ export function BrandManagementView({
               key={t.key}
               onClick={() => setActiveTab(t.key as TabKey)}
               className={clsx(
-                "px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 whitespace-nowrap transition-all",
+                "px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 whitespace-nowrap transition-all duration-150",
                 active
-                  ? "bg-primary text-ctaText shadow-sm"
+                  ? "bg-primary text-ctaText shadow-sm shadow-primary/20 scale-[1.02]"
                   : "text-muted-foreground hover:text-foreground hover:bg-fill-tertiary"
               )}
             >
@@ -1186,11 +1181,11 @@ export function BrandManagementView({
             </div>
 
             {/* Post Card Render */}
-            <div className="p-4 rounded-xl border border-border bg-card shadow-lg space-y-3">
+            <div className="p-4 rounded-2xl border border-border/80 bg-gradient-to-b from-card to-card/95 shadow-xl space-y-3.5 ring-1 ring-border/50">
               {/* Creator Header */}
               <div className="flex items-center gap-2.5">
                 <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center font-bold text-xs shadow-sm flex-shrink-0"
+                  className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shadow-sm flex-shrink-0 ring-2 ring-primary/30"
                   style={{
                     backgroundColor: primaryColor,
                     color: "#0B1A08",
@@ -1215,8 +1210,8 @@ export function BrandManagementView({
                   Most marketing teams spend 15+ hours every week juggling prompts, tools, and publishing queues.
                 </p>
                 {facts.length > 0 && (
-                  <p className="p-2.5 rounded-lg border border-border/80 bg-panel text-[11px] text-foreground font-medium">
-                    ✨ Verified Benchmark: {facts[0].statement}.
+                  <p className="p-2.5 rounded-xl border border-primary/20 bg-primary/5 text-[11px] text-foreground font-medium">
+                    ✨ <strong className="text-primary font-semibold">Verified Benchmark:</strong> {facts[0].statement}.
                   </p>
                 )}
                 <p className="text-muted-foreground text-[11px]">
@@ -1226,15 +1221,15 @@ export function BrandManagementView({
 
               {/* Rendered Mock Image with Brand Palette */}
               <div
-                className="w-full aspect-[16/9] rounded-lg flex flex-col justify-between p-4 relative overflow-hidden"
+                className="w-full aspect-[16/9] rounded-xl flex flex-col justify-between p-4 relative overflow-hidden shadow-inner"
                 style={{
-                  background: `linear-gradient(135deg, ${primaryColor}22 0%, #10131C 100%)`,
-                  border: `1px solid ${primaryColor}44`,
+                  background: `linear-gradient(135deg, ${primaryColor}25 0%, #0E1320 100%)`,
+                  border: `1px solid ${primaryColor}40`,
                 }}
               >
                 <div className="flex items-center justify-between">
                   <span
-                    className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded"
+                    className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shadow-sm"
                     style={{ backgroundColor: primaryColor, color: "#0B1A08" }}
                   >
                     Framework
@@ -1244,30 +1239,30 @@ export function BrandManagementView({
 
                 <div className="space-y-1">
                   <div
-                    className="text-lg font-bold tracking-tight text-foreground"
+                    className="text-lg font-bold tracking-tight text-white"
                     style={{ fontFamily: headingFont === "Instrument Serif" ? "var(--font-instrument-serif)" : "sans-serif" }}
                   >
                     {pillars[0]?.name || "Autonomous Growth OS"}
                   </div>
-                  <div className="text-[11px] text-muted-foreground">
+                  <div className="text-[11px] text-white/70">
                     Content Engine · Cross-Platform Publishing
                   </div>
                 </div>
 
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full" style={{ backgroundColor: secondaryColor }} />
-                  <span className="text-[9px] text-muted-foreground">Generated by Growth OS</span>
+                  <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: secondaryColor }} />
+                  <span className="text-[9px] text-white/60">Generated by Growth OS</span>
                 </div>
               </div>
 
               {/* CTA & Hashtags */}
-              <div className="space-y-1.5 pt-1">
+              <div className="space-y-1.5 pt-1 border-t border-border/50">
                 <div className="text-xs font-semibold text-primary">
                   👉 {ctasInput.split("\n")[0] || "Book a 15-min demo"}
                 </div>
                 <div className="text-[10px] text-muted-foreground flex flex-wrap gap-1 font-mono">
                   {hashtagsInput.split(",").map((h) => h.trim()).filter(Boolean).map((h, i) => (
-                    <span key={i}>{h}</span>
+                    <span key={i} className="hover:text-foreground transition-colors">{h}</span>
                   ))}
                 </div>
               </div>

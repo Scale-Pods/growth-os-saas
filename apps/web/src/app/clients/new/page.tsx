@@ -7,9 +7,9 @@ import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Building2, ArrowLeft, Plus, AlertCircle } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 import { createBrandAction } from "../actions";
-import type { Organization, Brand, OrgRole } from "@growth-os/db";
+import type { Organization, OrgRole } from "@growth-os/db";
 
 interface MembershipWithOrg {
   role: OrgRole;
@@ -119,8 +119,8 @@ export default async function NewBrandPage() {
           subtitle={`Add an isolated brand to ${activeOrg.name}. Each brand holds its own profile, visual kit, voice guardrails, and verified facts.`}
         />
 
-        <Card className="space-y-5">
-          <div className="p-3.5 rounded-xl border border-primary/20 bg-primary/10 text-xs flex items-center justify-between">
+        <Card className="space-y-5 border-border/80 shadow-lg">
+          <div className="p-3.5 rounded-xl border border-primary/25 bg-gradient-to-r from-primary/15 to-primary/5 text-xs flex items-center justify-between">
             <span className="text-foreground">
               Current Plan: <strong className="capitalize">{activeOrg.plan_id}</strong> · Brands active:{" "}
               <strong>{brands.length}</strong>
@@ -130,7 +130,7 @@ export default async function NewBrandPage() {
 
           <form action={handleCreate} className="space-y-4">
             <div>
-              <label className="label mb-1.5 block">Brand Name</label>
+              <label className="label mb-1.5 block font-semibold text-foreground">Brand Name</label>
               <input
                 type="text"
                 name="name"
@@ -138,16 +138,16 @@ export default async function NewBrandPage() {
                 placeholder="e.g. Apex Health, ScalePods AI"
                 className="input text-xs"
               />
-              <p className="text-[11px] text-muted-foreground mt-1">
-                You can configure the full visual identity, colors, and tone after creating the brand.
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                You can configure the full visual identity, colors, tone, and proof points right after creating the brand.
               </p>
             </div>
 
-            <div className="pt-3 flex items-center justify-end gap-2">
-              <Link href="/clients" className="btn-ghost text-xs px-4 py-2">
+            <div className="pt-3 flex items-center justify-end gap-2.5">
+              <Link href="/clients" className="btn-ghost text-xs px-4 py-2 border border-border/60 hover:border-border rounded-xl">
                 Cancel
               </Link>
-              <button type="submit" className="btn-primary text-xs px-5 py-2">
+              <button type="submit" className="btn-primary text-xs px-5 py-2.5 flex items-center gap-2 shadow-sm">
                 <Plus className="w-3.5 h-3.5" />
                 <span>Create Brand</span>
               </button>
