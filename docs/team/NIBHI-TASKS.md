@@ -190,12 +190,55 @@ Difficulty: 🟢 easy · 🟡 medium · 🔴 harder. Do them in order. Each says
 
 ---
 
+## Batch 2: the research screens and billing design (T14 to T19)
+
+Claude has built the database, AI jobs and server actions for all of these (phase P06). Your job is the screens. Same rules as before: your own branch and a PR, only the folders each task lists, no hard-coded numbers, every list has an empty state, every spend shows its estimate first. Do them in order. Everything the screens call is listed in **Part 4c** near the end of this file.
+
+### T14 🟡 Trend Alerts (`/trend-alerts`)
+**Why:** this is the most complete backend we have, and the most visible screen for customers.
+**Do:** Replace the placeholder with:
+- **Watches list:** name, status badge (active, paused, budget paused), keywords, how often it checks, credits spent this month versus the monthly budget (a progress bar), last checked time, and a **Check now** button that shows `JobProgress` while it runs.
+- **New watch** (a modal or its own section): name, description, keywords (up to 10), words to exclude, sources (Google News and RSS work today; show Reddit, Web and YouTube as "Needs a data provider, coming soon" and disabled), RSS feed addresses, region (two letters), look-back hours, relevance threshold, how often to check, **monthly budget in credits (required)**. Below the form show the live estimate from `estimateWatchAction` ("about N credits a month, at most M. It stops at your budget."). A pause and resume switch, and delete with a confirm dialog.
+- **Rules** per watch: in the app, Slack, or webhook. Slack and webhook need a public https address; show the server's message if it refuses. Choose the minimum relevance, the minimum importance, and instant, daily or weekly digest. Do not offer email (it is not available yet).
+- **Stories feed:** the newest stories for the selected watch, with title, summary, importance badge, sentiment, how many sources, and the links.
+**You may touch:** `apps/web/src/app/trend-alerts/page.tsx` and new `apps/web/src/components/trend-alerts/*`. Do not edit `actions.ts`.
+**Done when:** you can create a watch, see the estimate change as you change frequency and budget, press Check now and see progress, and read the stories (use `pnpm seed:dev` data or run a check against the local database). It works at 360 px and in both themes.
+
+> Prompt: *"Task T14. Build the Trend Alerts screen as described in the task, calling the existing server actions in `apps/web/src/app/trend-alerts/actions.ts`. Types come from `@growth-os/db` (`TrendWatch`, `TrendRule`, `TrendEvent`, `TrendWatchRun`). Load data in a server component with the user's Supabase client; use client components only for the form and buttons. Show `error.message` from failed actions."*
+
+### T15 🟡 Intelligence (`/intelligence`)
+**Do:** A brand research report page. Brand picker (the workspace's brands), a **Generate report** button that shows "About 8 credits" first, then `JobProgress`. The report has seven sections (website, Instagram, Facebook, LinkedIn, competitors, SEO, audience): show them as tabs or a table of contents with the text underneath (plain text with paragraphs; do not render it as HTML). Show the status (pending, processing, completed, or failed with the reason and a Try again button), the date it was made, and an empty state that explains what the report is.
+**You may touch:** `apps/web/src/app/intelligence/page.tsx` and new `apps/web/src/components/intelligence/*`.
+**Done when:** generating, progress, a finished report, and a failed report all look right.
+
+### T16 🟡 Strategy (`/strategy`)
+**Do:** Brand picker, then a **New strategy** form: scope (day, week or month), optional platform and content type, optional trend signals to include (a checklist from the latest trend scan). Show "About 12 credits" first, then `JobProgress`. A finished strategy shows seven sections (campaign planning, weekly content strategy, content pillars, platform strategy, lead generation strategy, CTA strategy, content calendar). Each section has a **Regenerate this section** button ("About 2 credits"). Add an **Approve** button; only one strategy per brand stays approved, so show an "Approved" badge and explain that approving replaces the previous one. Also show a **Competitor suggestions** list with Accept and Reject buttons per suggestion.
+**You may touch:** `apps/web/src/app/strategy/page.tsx` and new `apps/web/src/components/strategy/*`.
+
+### T17 🟢 Trends (`/trends`)
+**Do:** A **Scan trends** panel: tick the sources (Reddit, Instagram, YouTube, Google Search, Google Trends), set how many items per source (1 to 50), show "About 4 credits" first, then `JobProgress`. Below it, the list of signals from the latest scan grouped by source, with title, a short summary, a score, and a link that opens in a new tab with `rel="noopener noreferrer"`. If a source could not be read, show the reason next to it. Empty state for a brand that has never scanned.
+**You may touch:** `apps/web/src/app/trends/page.tsx` and new `apps/web/src/components/trends/*`.
+
+### T18 🟡 Credits and billing screens (design only)
+**Why:** billing is wired last (Razorpay), but the screens should exist and look right now.
+**Do:** Under `/settings/billing` (add the link to the settings page): (1) **Plan picker** with three plan cards and a monthly or yearly switch; (2) **Credits** card: the real balance (same data as `CreditsPill`), plus a table of recent credit movements from `credit_ledger` (date, what for, amount, balance after); (3) an **Out of credits** state and a **Low credits** banner component we can reuse next to any "Generate" button; (4) an invoices table with an empty state. Plan names, prices and credit amounts are **not decided yet**: take them from one small `plans-placeholder.ts` file clearly marked "placeholder, not final", so we can replace them in one place. The Upgrade buttons show a toast "Billing is not connected yet".
+**You may touch:** new `apps/web/src/app/settings/billing/page.tsx`, new `apps/web/src/components/billing/*`, and one link on `apps/web/src/app/settings/page.tsx`.
+
+### T19 🟡 Polish pass
+**Do:** After T14 to T18, walk every screen at 360, 768 and 1440 px in both themes: empty, loading and error states for every list; no sideways scrolling; focus rings; tap targets of 40 px or more. Then review the shared files you edited in PR #1 (`AppShell`, `Sidebar`, `TopBar`, the dashboard, `OnboardingWizard`, `BrandManagementView`) and confirm nothing there still shows fake numbers. Write what you changed in the PR.
+**You may touch:** component classes and `globals.css` (colour tokens only).
+
+### What Claude does at the same time
+Phase P07, content creation: the generation jobs, the review and approval flow, and media. Once those server pieces exist, Studio, Review and Content get their own task cards.
+
+---
+
 ## Part 4. What happens next (so you know the plan)
 
 | Phase | What it is | Who | Your part |
 |---|---|---|---|
 | **P05** (now) | Social accounts, posts, calendar, publishing | Claude: database (done), connect flow, scheduler, publish worker, wiring | T7, T8, T9, T10 |
-| **P06** | Research and strategy (business report, trends, strategy) | Claude: AI jobs | The report/trend/strategy screens (we will give you task cards) |
+| **P06** | Research and strategy (business report, trends, strategy) | Claude: AI jobs | T14 to T17: Trend Alerts, Intelligence, Strategy and Trends screens |
 | **P07** | Content creation (copy, images, carousels, video) | Claude: AI and render jobs | Studio screens, job progress UI |
 | **P08** | Review and team (approvals) | Claude | Review board, comments UI |
 | **P09** | Analytics and leads | Claude | Charts (`recharts`), leads table |
@@ -219,6 +262,35 @@ You do not wire these, but you should know their names, so your stubs match. All
 Rules the server already enforces (so your UI just reflects them): a scheduled time must be at least 5 minutes ahead; a post cannot be edited once it is publishing or published; a channel that "needs reconnect" cannot post; Instagram needs an image or video; X allows 280 characters.
 
 Until real social providers are connected, everything runs on a **fake provider**. In local development you can test failures by typing a marker into the caption: `[fail:AUTH_EXPIRED]`, `[fail:RATE_LIMITED]`, `[fail-once:RATE_LIMITED]` or `[fail:MEDIA_INVALID]`. A post with `[fail:AUTH_EXPIRED]` ends as **Failed** with the reconnect message and flags the channel "Needs reconnect": use it to check your failed and reconnect states.
+
+## Part 4c. Server actions for T14 to T19
+
+Same return shape as Part 4b (`{ ok: true, data }` or `{ ok: false, error: { message } }`). Job actions return `{ jobId, rowId, estimatedCredits }`; pass `jobId` to `JobProgress`. Never send `orgId` from the browser: the server adds it.
+
+**Trend Alerts** (`apps/web/src/app/trend-alerts/actions.ts`)
+
+| Action | Input |
+|---|---|
+| `estimateWatchAction` | `frequencyMinutes` (30, 60, 120, 240, 720 or 1440), `monthlyBudgetCredits` (1 to 10000). Returns `{ checksPerMonth, typical, max, willStopAtBudget }` |
+| `createWatchAction` | `brandId`, `name`, `keywords[]`; optional `description`, `excludes[]`, `sources[]`, `rssFeeds[]`, `region`, `lookbackHours` (6 to 168), `relevanceThreshold` (0 to 100), `frequencyMinutes`, `monthlyBudgetCredits`, `status` (`active` or `paused`) |
+| `updateWatchAction` | `watchId` plus any of the same fields |
+| `deleteWatchAction` | `watchId` |
+| `createRuleAction` | `name`, `channel` (`in_app`, `slack`, `webhook`); optional `watchId`, `minRelevance`, `minImportance` (`low`, `medium`, `high`), `sentiments[]`, `target` (public https address for slack or webhook), `digest` (`immediate`, `daily`, `weekly`), `enabled` |
+| `deleteRuleAction` | `ruleId` |
+| `runWatchNowAction` | `watchId`. Refusals (paused, over budget, already running) come back as readable messages |
+
+**Research and strategy** (`apps/web/src/app/research/actions.ts`)
+
+| Action | Input | Estimate |
+|---|---|---|
+| `startIntelligenceAction` | `brandId` | about 8 credits |
+| `startTrendScanAction` | `brandId`; optional `sources[]` (Reddit, Instagram, YouTube, Google Search, Google Trends), `counts` | about 4 |
+| `startStrategyAction` | `brandId`, `scope` (`day`, `week`, `month`); optional `platform`, `contentType`, `signalIds[]` | about 12 |
+| `regenerateStrategySectionAction` | `strategyId`, `section` (`campaign_planning`, `weekly_content_strategy`, `content_pillars`, `platform_strategy`, `lead_generation_strategy`, `cta_strategy`, `content_calendar`) | about 2 |
+| `approveStrategyAction` | `strategyId` | free |
+| `acceptCompetitorCandidateAction` and `rejectCompetitorCandidateAction` | `candidateId` | free |
+
+Data shapes: `import type { IntelligenceReport, TrendRun, TrendSignal, Strategy, CompetitorCandidate, TrendWatch, TrendWatchRun, TrendEvent, TrendRule, CreditLedgerEntry } from "@growth-os/db"`. The estimate numbers above are labels only; the real number comes back in `estimatedCredits`, and the final cost is recorded on the job.
 
 ## Part 5. If you get stuck
 
